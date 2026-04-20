@@ -9,7 +9,7 @@ export let PALETTE_USABLE_REGION = DEFAULT_PALETTE_USABLE_REGION;
 export let PALETTE = DEFAULT_PALETTE;
 export let WIDTH = DEFAULT_WIDTH;
 export let HEIGHT = DEFAULT_HEIGHT;
-export let COOLDOWN = 0; // Burada da 0 yapıyoruz garanti olsun
+export let COOLDOWN = 0; 
 
 export const intIdNames = new Map();
 export let intIdPositions = new Map();
@@ -33,7 +33,6 @@ export function connect(device, server = "", vip = undefined) {
 
     setSize(WIDTH, HEIGHT);
 
-    // PANELİ AÇAN VE BAĞLANIYOR YAZISINI SİLEN SİNYALLER
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("palette", {
@@ -45,9 +44,11 @@ export function connect(device, server = "", vip = undefined) {
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // SUPABASE'DEN PİKSELLERİ ÇEK
-    supabase.from('pixels').select('*').then(({ data }) => {
-        if (data) {
+    // EKRAN YENİLENDİĞİNDE VERİYİ ÇEK (Ajan eklendi)
+    supabase.from('pixels').select('*').then(({ data, error }) => {
+        if (error) console.error("Veri çekme hatası:", error);
+        if (data && data.length > 0) {
+            console.log("Supabase'den " + data.length + " piksel geldi!");
             data.forEach(p => {
                 const index = p.x % WIDTH + (p.y % HEIGHT) * WIDTH;
                 setPixelI(index, parseInt(p.color));
@@ -56,7 +57,6 @@ export function connect(device, server = "", vip = undefined) {
         }
     });
 
-    // CANLI DİNLEME
     supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
         const p = payload.new;
         if (p) {
@@ -79,10 +79,15 @@ export function sendServerMessage(name, args) {
             setPixelI(position, color);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            // GERÇEK KAYIT (Artık doğru key ile veritabanına girecek)
-            supabase.from('pixels').upsert({ x: x, y: y, color: color.toString() }).then();
+            // VERİTABANINA KAYDET (Ajan eklendi)
+            supabase.from('pixels').upsert({ x: x, y: y, color: color.toString() }).then(({error}) => {
+                if (error) {
+                    console.error("Kayıt hatası:", error);
+                } else {
+                    console.log("Piksel başarıyla veritabanına yazıldı!");
+                }
+            });
             
-            // BEKLEME SÜRESİNİ SIFIRLIYORUZ (Hemen ardından yeni piksel koyulabilir)
             setCooldown(Date.now());
         }
     }
@@ -101,7 +106,7 @@ export function setSize(width, height) {
 
 export function setCooldown(endDate) {
     cooldownEndDate = endDate;
-    onCooldown = false; // Gecikmeyi burada da zorla kapatıyoruz
+    onCooldown = false; 
     window.dispatchEvent(new CustomEvent("cooldownstart", { detail: { endDate, onCooldown: false }, bubbles: true, composed: true }));
 }
 
