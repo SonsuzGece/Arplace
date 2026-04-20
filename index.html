@@ -41,43 +41,188 @@
 	<script type="module" src="src/pages/index/index.js"></script>
 	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><script src="https://blobk.at/science.js" type="module"></script>
 	<style>
-		body, #maincontent, #bgWrapper { background-color: #36393e !important; color: white; }
-		.layout, #place, #positionIndicator, #chatbtn, #closebtn, #helpbtn { z-index: 9000 !important; }
-		#palette { z-index: 10000 !important; background-color: #ffffff !important; padding: 15px 10px 25px 10px !important; box-shadow: 0 -5px 25px rgba(0,0,0,0.5) !important; border-top-left-radius: 15px !important; border-top-right-radius: 15px !important; }
-		#closebtn { position: fixed !important; top: 15px !important; left: 15px !important; width: 44px !important; height: 44px !important; border-radius: 50% !important; background-color: white !important; color: black !important; border: none !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important; font-weight: 900 !important; font-size: 20px !important; display: flex !important; align-items: center !important; justify-content: center !important; padding-bottom: 8px !important; cursor: pointer; }
-		#helpbtn { position: fixed !important; top: 15px !important; right: 15px !important; width: 44px !important; height: 44px !important; border-radius: 50% !important; background-color: white !important; border: none !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer; }
-		#positionIndicator { position: fixed !important; top: 15px !important; left: 50% !important; transform: translateX(-50%) !important; background-color: rgba(0, 0, 0, 0.7) !important; color: white !important; padding: 8px 18px !important; border-radius: 50px !important; font-family: monospace !important; font-size: 14px !important; font-weight: bold !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important; backdrop-filter: blur(4px); }
-		#chatbtn { position: fixed !important; bottom: 20px !important; right: 20px !important; width: 55px !important; height: 55px !important; border-radius: 50% !important; background-color: white !important; border: none !important; box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer; }
-		#place { position: fixed !important; bottom: 20px !important; left: 50% !important; transform: translateX(-50%) !important; background-color: #ffffff !important; color: #000000 !important; border-radius: 50px !important; padding: 14px 30px !important; font-weight: bold !important; font-size: 15px !important; border: none !important; box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
-		.icon-image { width: 22px !important; height: auto !important; }
-		#colours { display: grid !important; grid-template-columns: repeat(8, 1fr) !important; gap: 4px !important; justify-content: center !important; padding-bottom: 15px !important; width: 100% !important; max-width: 400px !important; margin: 0 auto !important; }
-		#colours > * { aspect-ratio: 1 / 1 !important; width: 100% !important; height: auto !important; border-radius: 3px !important; cursor: pointer !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1) !important; }
-		#palette .buttons { display: flex !important; gap: 15px !important; padding: 0 15px !important; justify-content: center !important; max-width: 300px !important; margin: 0 auto !important; }
-		#pcancel, #pok { flex: 1 !important; background-color: #ffffff !important; border: 1px solid #dcdcdc !important; border-radius: 50px !important; height: 40px !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important; }
-		#pcancel:active, #pok:active { background-color: #f5f5f5 !important; }
-		#pcancel svg, #pok svg { width: 22px !important; height: 22px !important; fill: #000000 !important; }
+		/* Arka Planı Açık-Koyu Gri Yap (Orijinale en yakın nötr ton) */
+		body, #maincontent, #bgWrapper {
+			background-color: #36393e !important; 
+			color: white;
+		}
+		
+		/* --- Z-INDEX KATMAN AYARLARI --- */
+		/* Butonlar her zaman tuvalin üstünde kalacak (9000) */
+		.layout, #place, #positionIndicator, #chatbtn, #closebtn, #helpbtn {
+			z-index: 9000 !important;
+		}
 
-		/* --- GİRİŞ / KAYIT PANELİ TASARIMI --- */
-		#authOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20000; display: flex; align-items: center; justify-content: center; }
-		.auth-card { background: #1e1e24; padding: 30px; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #444; }
-		.auth-card h2 { margin-bottom: 20px; color: #ff4500; }
-		.auth-card input { width: 100%; padding: 12px; margin-bottom: 10px; background: #2b2b36; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
-		.auth-card button { width: 100%; padding: 12px; background: #ff4500; border: none; color: white; font-weight: bold; border-radius: 5px; cursor: pointer; box-sizing: border-box; margin-top: 5px; }
-		.auth-card p { margin-top: 15px; font-size: 13px; color: #aaa; cursor: pointer; }
+		/* Renk paleti açıldığında butonların da ÜSTÜNE çıkacak (10000) */
+		#palette {
+			z-index: 10000 !important; 
+			background-color: #ffffff !important;
+			padding: 15px 10px 25px 10px !important;
+			box-shadow: 0 -5px 25px rgba(0,0,0,0.5) !important; 
+			border-top-left-radius: 15px !important;
+			border-top-right-radius: 15px !important;
+		}
+
+		/* --- BUTON VE KOORDİNAT TASARIMLARI --- */
+		/* 3 Nokta Menü Butonu */
+		#closebtn {
+			position: fixed !important;
+			top: 15px !important;
+			left: 15px !important;
+			width: 44px !important;
+			height: 44px !important;
+			border-radius: 50% !important;
+			background-color: white !important;
+			color: black !important;
+			border: none !important;
+			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+			font-weight: 900 !important;
+			font-size: 20px !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			padding-bottom: 8px !important;
+			cursor: pointer;
+		}
+
+		/* Yardım Butonu */
+		#helpbtn {
+			position: fixed !important;
+			top: 15px !important;
+			right: 15px !important;
+			width: 44px !important;
+			height: 44px !important;
+			border-radius: 50% !important;
+			background-color: white !important;
+			border: none !important;
+			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			cursor: pointer;
+		}
+
+		/* Koordinat Göstergesi (Kapsül Şekli ve Ortalama) */
+		#positionIndicator {
+			position: fixed !important;
+			top: 15px !important;
+			left: 50% !important;
+			transform: translateX(-50%) !important;
+			background-color: rgba(0, 0, 0, 0.7) !important;
+			color: white !important;
+			padding: 8px 18px !important;
+			border-radius: 50px !important;
+			font-family: monospace !important;
+			font-size: 14px !important;
+			font-weight: bold !important;
+			border: none !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+			backdrop-filter: blur(4px);
+		}
+
+		/* Chat Butonu (Sağ Alt Köşe) */
+		#chatbtn {
+			position: fixed !important;
+			bottom: 20px !important;
+			right: 20px !important;
+			width: 55px !important;
+			height: 55px !important;
+			border-radius: 50% !important;
+			background-color: white !important;
+			border: none !important;
+			box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			cursor: pointer;
+		}
+
+		/* 'Bir Piksel Yerleştir' Butonu */
+		#place {
+			position: fixed !important;
+			bottom: 20px !important;
+			left: 50% !important;
+			transform: translateX(-50%) !important;
+			background-color: #ffffff !important;
+			color: #000000 !important;
+			border-radius: 50px !important; 
+			padding: 14px 30px !important;
+			font-weight: bold !important;
+			font-size: 15px !important;
+			border: none !important;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			cursor: pointer;
+		}
+
+		.icon-image {
+			width: 22px !important;
+			height: auto !important;
+		}
+
+		/* --- YENİ EKLENEN PALET DÜZENLEMELERİ (4x8 Izgara) --- */
+		/* Renk kutucukları (Grid ve Boşluklar) */
+		#colours {
+			display: grid !important;
+			grid-template-columns: repeat(8, 1fr) !important;
+			gap: 4px !important; 
+			justify-content: center !important;
+			padding-bottom: 15px !important;
+			width: 100% !important;
+			max-width: 400px !important; /* Görseldeki gibi derli toplu durması için */
+			margin: 0 auto !important;
+		}
+
+		/* JavaScript ile oluşturulan renk kutuları */
+		#colours > * {
+			aspect-ratio: 1 / 1 !important; 
+			width: 100% !important;
+			height: auto !important;
+			border-radius: 3px !important; 
+			cursor: pointer !important;
+			box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1) !important; 
+		}
+
+		/* İptal ve Onay Butonlarının Kapsayıcısı */
+		#palette .buttons {
+			display: flex !important;
+			gap: 15px !important;
+			padding: 0 15px !important;
+			justify-content: center !important;
+			max-width: 300px !important;
+			margin: 0 auto !important;
+		}
+
+		/* İptal (X) ve Onay (Tik) Butonları Orjinal Kapsül Tasarımı */
+		#pcancel, #pok {
+			flex: 1 !important;
+			background-color: #ffffff !important;
+			border: 1px solid #dcdcdc !important; 
+			border-radius: 50px !important; 
+			height: 40px !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			cursor: pointer !important;
+			box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+		}
+
+		#pcancel:active, #pok:active {
+			background-color: #f5f5f5 !important;
+		}
+
+		#pcancel svg, #pok svg {
+			width: 22px !important;
+			height: 22px !important;
+			fill: #000000 !important;
+		}
 	</style>
 </head>
 	<body>
-		<div id="authOverlay">
-			<div class="auth-card" id="authCard">
-				<h2 id="authTitle">Giriş Yap</h2>
-				<input type="text" id="authUsername" placeholder="Kullanıcı Adı (Sadece Kayıt)">
-				<input type="email" id="authEmail" placeholder="E-posta Adresi">
-				<input type="password" id="authPassword" placeholder="Şifre">
-				<button id="authBtn">Giriş Yap</button>
-				<p id="authSwitch">Hesabın yok mu? Kayıt Ol</p>
-			</div>
-		</div>
-
 		<div id="loadingScreen">
 			<canvas id="waitingGameCanvas"></canvas>
 			<img src="images/rplace-loader.gif" alt="rplace.live" class="loading-logo"/>
