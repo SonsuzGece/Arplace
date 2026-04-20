@@ -9,7 +9,7 @@ export let PALETTE_USABLE_REGION = DEFAULT_PALETTE_USABLE_REGION;
 export let PALETTE = DEFAULT_PALETTE;
 export let WIDTH = DEFAULT_WIDTH;
 export let HEIGHT = DEFAULT_HEIGHT;
-export let COOLDOWN = DEFAULT_COOLDOWN;
+export let COOLDOWN = 0; // Bekleme süresini tamamen iptal ettik (Sınırsız)
 
 export const intIdNames = new Map();
 export let intIdPositions = new Map();
@@ -34,61 +34,62 @@ export function connect(device, server = "", vip = undefined) {
 
     setSize(WIDTH, HEIGHT);
 
-    // Supabase'den eski pikselleri çek
-    supabase.from('pixels').select('*').then(({ data, error }) => {
-        if (data) {
-            for (const pixel of data) {
-                const index = pixel.x % WIDTH + (pixel.y % HEIGHT) * WIDTH;
-                setPixelI(index, parseInt(pixel.color));
-            }
-            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-        }
-    });
+    // -------------------------------------------------------------
+    // SİNYAL GECİKTİRİCİ: Arayüzün hazır olması için 1 saniye bekliyoruz
+    // -------------------------------------------------------------
+    setTimeout(() => {
+        try {
+            // Kimlik atama
+            intId = Math.floor(Math.random() * 10000);
+            window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
+            window.dispatchEvent(new CustomEvent("chatname", { detail: { chatName: "Oyuncu" }, bubbles: true, composed: true }));
 
-    // Başkalarının koyduğu pikselleri anlık gör
-    supabase
-        .channel('public:pixels')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
-            const pixel = payload.new;
-            if (pixel && pixel.x !== undefined && pixel.y !== undefined && pixel.color !== undefined) {
-                const index = pixel.x % WIDTH + (pixel.y % HEIGHT) * WIDTH;
-                setPixelI(index, parseInt(pixel.color));
+            // Renk paletini aç
+            window.dispatchEvent(new CustomEvent("palette", {
+                detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end },
+                bubbles: true,
+                composed: true
+            }));
+
+            // Yüklemeyi bitir ve menüleri göster
+            window.dispatchEvent(new CustomEvent("online", { detail: { count: 1 }, bubbles: true, composed: true }));
+            window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
+            window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
+        } catch (e) {
+            console.error("Arayüz hatası:", e);
+        }
+    }, 1000);
+
+    // Supabase Bağlantısı (Kayıtlı pikselleri çekme)
+    try {
+        supabase.from('pixels').select('*').then(({ data, error }) => {
+            if (data) {
+                for (const pixel of data) {
+                    const index = pixel.x % WIDTH + (pixel.y % HEIGHT) * WIDTH;
+                    setPixelI(index, parseInt(pixel.color));
+                }
                 window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
             }
-        })
-        .subscribe();
+        });
 
-    // -----------------------------------------------------------------
-    // İŞTE MENÜYÜ AÇACAK OLAN SİHİRLİ SİNYALLER (BURAYI EKLEDİK)
-    // -----------------------------------------------------------------
-    
-    // 1. Siteye sahte bir "Giriş Yaptın" ID'si veriyoruz ki menüyü göstersin
-    intId = Math.floor(Math.random() * 10000);
-    window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
-    window.dispatchEvent(new CustomEvent("chatname", { detail: { chatName: "Oyuncu" }, bubbles: true, composed: true }));
-    
-    // 2. Arayüze "Renk Paleti Budur" sinyalini yolluyoruz
-    window.dispatchEvent(new CustomEvent("palette", {
-        detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end },
-        bubbles: true,
-        composed: true
-    }));
-
-    // 3. Bekleme süresini ve oyunu tamamen başlat
-    window.dispatchEvent(new CustomEvent("cooldown", {
-        detail: { endDate: new Date(), cooldown: COOLDOWN },
-        bubbles: true,
-        composed: true
-    }));
-
-    window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
-    window.dispatchEvent(new CustomEvent("online", { detail: { count: 1 }, bubbles: true, composed: true }));
+        supabase.channel('public:pixels')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
+                const pixel = payload.new;
+                if (pixel && pixel.x !== undefined && pixel.y !== undefined && pixel.color !== undefined) {
+                    const index = pixel.x % WIDTH + (pixel.y % HEIGHT) * WIDTH;
+                    setPixelI(index, parseInt(pixel.color));
+                    window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+                }
+            }).subscribe();
+    } catch(e) {
+        console.error("Veritabanı hatası:", e);
+    }
 }
 
 export function sendServerMessage(name, args=undefined, event=undefined) {
     if (name === "putPixel") {
-        const position = args.position !== undefined ? args.position : (Array.isArray(args) ? args[0] : null);
-        const color = args.colour !== undefined ? args.colour : (Array.isArray(args) ? args[1] : null);
+        const position = args?.position !== undefined ? args.position : (Array.isArray(args) ? args[0] : null);
+        const color = args?.colour !== undefined ? args.colour : (Array.isArray(args) ? args[1] : null);
         
         if (position !== null && color !== null) {
             const x = position % WIDTH;
@@ -97,9 +98,12 @@ export function sendServerMessage(name, args=undefined, event=undefined) {
             setPixelI(position, color);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            supabase.from('pixels').upsert({ x: x, y: y, color: color.toString() }).then();
+            try {
+                supabase.from('pixels').upsert({ x: x, y: y, color: color.toString() }).then();
+            } catch(e) {}
             
-            setCooldown(Date.now() + COOLDOWN);
+            // Süreyi sıfır tutuyoruz (Bekleme yok)
+            setCooldown(Date.now());
         }
     }
 }
