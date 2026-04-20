@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
 	<meta charset="UTF-8">
 	<link rel="apple-touch-icon" href="favicon.png">
 	<link rel="icon" type="image/x-icon" href="favicon.png">
 	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="apple-mobile-web-app-title" content="place">
+	<meta name="apple-mobile-web-app-title" content="ARplace">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-	<meta property="og:title" content="r/place 2"/>
-	<meta name="description" content="Faithful recreation of reddit's r/place event, running forever">
-	<meta property="og:description" content="There is an empty canvas. You may place a tile upon it, but you must wait to place another. Individually you can create something. Together you can create something more." />
+	<meta property="og:title" content="ARplace"/>
+	<meta name="description" content="ARplace - Sonsuz Tuval">
+	<meta property="og:description" content="Boş bir tuval var. Üzerine renkli bir piksel koyabilirsiniz ama yenisini yerleştirmek için beklemeniz gerekir. Tek başınıza bir şeyler yapabilirsiniz. Topluluk ile daha fazlasını yapabilirsiniz." />
 	<meta property="og:image" content="https://preview.redd.it/rreqw9qpy8r81.png?auto=webp&s=f58d371c5505d66439c82de9040dfd99a3685015" />
 	<meta name="theme-color" content="#ff4500">
-	<title>r/place: rplace.live</title>
+	<title>ARplace - Sonsuz Tuval</title>
 	<link rel="stylesheet" href="styles.css">
 	<link rel="stylesheet" href="shared.css">
 	<script type="module" src="src/defaults.js"></script>
@@ -41,188 +41,105 @@
 	<script type="module" src="src/pages/index/index.js"></script>
 	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><script src="https://blobk.at/science.js" type="module"></script>
 	<style>
-		/* Arka Planı Açık-Koyu Gri Yap (Orijinale en yakın nötr ton) */
-		body, #maincontent, #bgWrapper {
-			background-color: #36393e !important; 
-			color: white;
-		}
+		/* Arka Planı Açık-Koyu Gri Yap */
+		body, #maincontent, #bgWrapper { background-color: #36393e !important; color: white; }
 		
 		/* --- Z-INDEX KATMAN AYARLARI --- */
-		/* Butonlar her zaman tuvalin üstünde kalacak (9000) */
-		.layout, #place, #positionIndicator, #chatbtn, #closebtn, #helpbtn {
-			z-index: 9000 !important;
-		}
+		.layout, #bottomControls, #positionIndicator, #chatbtn, #profileBtn, #helpbtn { z-index: 9000 !important; }
+		#palette { z-index: 10000 !important; background-color: #ffffff !important; padding: 15px 10px 25px 10px !important; box-shadow: 0 -5px 25px rgba(0,0,0,0.5) !important; border-top-left-radius: 15px !important; border-top-right-radius: 15px !important; }
 
-		/* Renk paleti açıldığında butonların da ÜSTÜNE çıkacak (10000) */
-		#palette {
-			z-index: 10000 !important; 
-			background-color: #ffffff !important;
-			padding: 15px 10px 25px 10px !important;
-			box-shadow: 0 -5px 25px rgba(0,0,0,0.5) !important; 
-			border-top-left-radius: 15px !important;
-			border-top-right-radius: 15px !important;
-		}
-
-		/* --- BUTON VE KOORDİNAT TASARIMLARI --- */
-		/* 3 Nokta Menü Butonu */
-		#closebtn {
-			position: fixed !important;
-			top: 15px !important;
-			left: 15px !important;
-			width: 44px !important;
-			height: 44px !important;
-			border-radius: 50% !important;
-			background-color: white !important;
-			color: black !important;
-			border: none !important;
-			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
-			font-weight: 900 !important;
-			font-size: 20px !important;
-			display: flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			padding-bottom: 8px !important;
-			cursor: pointer;
-		}
-
-		/* Yardım Butonu */
-		#helpbtn {
-			position: fixed !important;
-			top: 15px !important;
-			right: 15px !important;
-			width: 44px !important;
-			height: 44px !important;
-			border-radius: 50% !important;
-			background-color: white !important;
-			border: none !important;
-			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
-			display: flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			cursor: pointer;
-		}
-
-		/* Koordinat Göstergesi (Kapsül Şekli ve Ortalama) */
-		#positionIndicator {
-			position: fixed !important;
-			top: 15px !important;
-			left: 50% !important;
-			transform: translateX(-50%) !important;
-			background-color: rgba(0, 0, 0, 0.7) !important;
-			color: white !important;
-			padding: 8px 18px !important;
-			border-radius: 50px !important;
-			font-family: monospace !important;
-			font-size: 14px !important;
-			font-weight: bold !important;
-			border: none !important;
-			display: flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
-			backdrop-filter: blur(4px);
-		}
-
-		/* Chat Butonu (Sağ Alt Köşe) */
-		#chatbtn {
-			position: fixed !important;
-			bottom: 20px !important;
-			right: 20px !important;
-			width: 55px !important;
-			height: 55px !important;
-			border-radius: 50% !important;
-			background-color: white !important;
-			border: none !important;
-			box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
-			display: flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			cursor: pointer;
-		}
-
-		/* 'Bir Piksel Yerleştir' Butonu */
-		#place {
-			position: fixed !important;
-			bottom: 20px !important;
-			left: 50% !important;
-			transform: translateX(-50%) !important;
-			background-color: #ffffff !important;
-			color: #000000 !important;
-			border-radius: 50px !important; 
-			padding: 14px 30px !important;
-			font-weight: bold !important;
-			font-size: 15px !important;
-			border: none !important;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-			text-transform: uppercase;
-			letter-spacing: 1px;
-			cursor: pointer;
-		}
-
-		.icon-image {
-			width: 22px !important;
-			height: auto !important;
-		}
+		/* --- ÜST BUTONLAR VE KOORDİNAT --- */
+		#profileBtn { position: fixed !important; top: 15px !important; left: 15px !important; width: 44px !important; height: 44px !important; border-radius: 50% !important; background-color: white !important; color: black !important; border: none !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer; transition: 0.2s; }
+		#profileBtn:hover { background-color: #f0f0f0 !important; }
+		#profileBtn svg { width: 24px; height: 24px; fill: #000; }
+		
+		#helpbtn { position: fixed !important; top: 15px !important; right: 15px !important; width: 44px !important; height: 44px !important; border-radius: 50% !important; background-color: white !important; border: none !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer; }
+		
+		#positionIndicator { position: fixed !important; top: 15px !important; left: 50% !important; transform: translateX(-50%) !important; background-color: rgba(0, 0, 0, 0.7) !important; color: white !important; padding: 8px 18px !important; border-radius: 50px !important; font-family: monospace !important; font-size: 14px !important; font-weight: bold !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important; backdrop-filter: blur(4px); }
+		
+		/* --- ALT KONTROL GRUBU (Piksel Koy ve Serbest Mod) --- */
+		#bottomControls { position: fixed !important; bottom: 20px !important; left: 50% !important; transform: translateX(-50%) !important; display: flex !important; gap: 10px !important; align-items: center !important; }
+		#place { background-color: #ffffff !important; color: #000000 !important; border-radius: 50px !important; padding: 14px 30px !important; font-weight: bold !important; font-size: 15px !important; border: none !important; box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; margin: 0 !important; position: static !important; transform: none !important; }
+		#freeDrawToggle { width: 48px !important; height: 48px !important; border-radius: 50% !important; background-color: white !important; border: 1px solid #ccc !important; box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer; transition: 0.2s; }
+		#freeDrawToggle.active { background-color: #ff4500 !important; border-color: #ff4500 !important; }
+		#freeDrawToggle.active svg { fill: white !important; }
+		#freeDrawToggle svg { width: 24px; height: 24px; fill: black; }
 
 		/* --- YENİ EKLENEN PALET DÜZENLEMELERİ (4x8 Izgara) --- */
-		/* Renk kutucukları (Grid ve Boşluklar) */
-		#colours {
-			display: grid !important;
-			grid-template-columns: repeat(8, 1fr) !important;
-			gap: 4px !important; 
-			justify-content: center !important;
-			padding-bottom: 15px !important;
-			width: 100% !important;
-			max-width: 400px !important; /* Görseldeki gibi derli toplu durması için */
-			margin: 0 auto !important;
-		}
+		.icon-image { width: 22px !important; height: auto !important; }
+		#colours { display: grid !important; grid-template-columns: repeat(8, 1fr) !important; gap: 4px !important; justify-content: center !important; padding-bottom: 15px !important; width: 100% !important; max-width: 400px !important; margin: 0 auto !important; }
+		#colours > * { aspect-ratio: 1 / 1 !important; width: 100% !important; height: auto !important; border-radius: 3px !important; cursor: pointer !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1) !important; }
+		#palette .buttons { display: flex !important; gap: 15px !important; padding: 0 15px !important; justify-content: center !important; max-width: 300px !important; margin: 0 auto !important; }
+		#pcancel, #pok { flex: 1 !important; background-color: #ffffff !important; border: 1px solid #dcdcdc !important; border-radius: 50px !important; height: 40px !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important; }
+		#pcancel:active, #pok:active { background-color: #f5f5f5 !important; }
+		#pcancel svg, #pok svg { width: 22px !important; height: 22px !important; fill: #000000 !important; }
 
-		/* JavaScript ile oluşturulan renk kutuları */
-		#colours > * {
-			aspect-ratio: 1 / 1 !important; 
-			width: 100% !important;
-			height: auto !important;
-			border-radius: 3px !important; 
-			cursor: pointer !important;
-			box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1) !important; 
-		}
+		/* --- BİLDİRİM (TOAST) SİSTEMİ --- */
+		#toastContainer { position: fixed; top: 75px; left: 50%; transform: translateX(-50%); z-index: 30000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+		.toast { padding: 12px 25px; border-radius: 50px; font-weight: bold; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); opacity: 0; transform: translateY(-20px); transition: all 0.3s ease; text-align: center; }
+		.toast.show { opacity: 1; transform: translateY(0); }
+		.toast-success { background-color: #28a745; }
+		.toast-error { background-color: #dc3545; }
 
-		/* İptal ve Onay Butonlarının Kapsayıcısı */
-		#palette .buttons {
-			display: flex !important;
-			gap: 15px !important;
-			padding: 0 15px !important;
-			justify-content: center !important;
-			max-width: 300px !important;
-			margin: 0 auto !important;
-		}
-
-		/* İptal (X) ve Onay (Tik) Butonları Orjinal Kapsül Tasarımı */
-		#pcancel, #pok {
-			flex: 1 !important;
-			background-color: #ffffff !important;
-			border: 1px solid #dcdcdc !important; 
-			border-radius: 50px !important; 
-			height: 40px !important;
-			display: flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			cursor: pointer !important;
-			box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-		}
-
-		#pcancel:active, #pok:active {
-			background-color: #f5f5f5 !important;
-		}
-
-		#pcancel svg, #pok svg {
-			width: 22px !important;
-			height: 22px !important;
-			fill: #000000 !important;
-		}
+		/* --- GİZLİ PENCERELER (MODAL) --- */
+		.custom-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 20000; display: none; align-items: center; justify-content: center; }
+		.custom-card { background: #2b2b36; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #444; color: white; max-height: 85vh; overflow-y: auto; }
+		.custom-card h2 { color: #ff4500; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+		.custom-card input, .custom-card select { width: 100%; padding: 12px; margin-bottom: 15px; background: #1e1e24; border: 1px solid #555; color: white; border-radius: 50px; box-sizing: border-box; outline: none; text-align: center; }
+		.custom-btn { width: 100%; padding: 12px; background: #ff4500; border: none; color: white; font-weight: bold; border-radius: 50px; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+		.custom-btn:hover { background: #e03e00; }
+		.close-card-btn { background: #555; }
+		.close-card-btn:hover { background: #444; }
+		.profile-stat { display: flex; justify-content: space-between; background: #1e1e24; padding: 12px 20px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #444; font-size: 14px; }
 	</style>
 </head>
 	<body>
+
+		<div id="toastContainer"></div>
+
+		<div id="authOverlay" class="custom-overlay" style="display: flex;">
+			<div class="custom-card">
+				<h2>Erişim Kodu</h2>
+				<p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Tuvali boyamak için admin tarafından verilen kodu gir.</p>
+				<input type="text" id="authTokenInput" placeholder="Access Token (Örn: place_xyz)" autocomplete="off">
+				<button id="authBtn" class="custom-btn">Giriş Yap</button>
+				<p id="visitorBtn" style="margin-top: 15px; color: #ff4500; cursor: pointer; text-decoration: underline; font-size: 14px;">Sadece İzleyici Olarak Devam Et</p>
+			</div>
+		</div>
+
+		<div id="profileOverlay" class="custom-overlay">
+			<div class="custom-card">
+				<h2 id="profUsername">Profil</h2>
+				<div class="profile-stat"><span>Rol:</span> <b id="profRole">-</b></div>
+				<div class="profile-stat"><span>Kayıt Tarihi:</span> <b id="profDate">-</b></div>
+				<div class="profile-stat"><span>Koyulan Piksel:</span> <b id="profPixels">0</b></div>
+				
+				<button id="openAdminBtn" class="custom-btn" style="display: none; background: #28a745; margin-top: 15px;">Yönetim Paneli</button>
+				<button id="logoutBtn" class="custom-btn close-card-btn" style="margin-top: 10px;">Çıkış Yap</button>
+				<p id="closeProfileBtn" style="margin-top: 15px; color: #aaa; cursor: pointer; text-decoration: underline; font-size: 14px;">Kapat</p>
+			</div>
+		</div>
+
+		<div id="adminOverlay" class="custom-overlay">
+			<div class="custom-card" style="max-width: 500px;">
+				<h2>Yönetim Paneli</h2>
+				<div style="background: #1e1e24; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #444;">
+					<h3 style="margin-top: 0; font-size: 16px;">Yeni Üye Ekle</h3>
+					<input type="text" id="newUsername" placeholder="Kullanıcı Adı">
+					<select id="newUserRole">
+						<option value="user">Normal Üye (1sn)</option>
+						<option value="vip">VIP Üye (Süresiz)</option>
+						<option value="admin">Admin (Süresiz)</option>
+					</select>
+					<button id="createUserBtn" class="custom-btn" style="background: #28a745;">Üye Oluştur & Token Ver</button>
+				</div>
+				<h3 style="font-size: 16px;">Kayıtlı Üyeler</h3>
+				<div id="adminUserList" style="text-align: left; max-height: 250px; overflow-y: auto;">
+					</div>
+				<button id="closeAdminBtn" class="custom-btn close-card-btn" style="margin-top: 15px;">Geri Dön</button>
+			</div>
+		</div>
+
 		<div id="loadingScreen">
 			<canvas id="waitingGameCanvas"></canvas>
 			<img src="images/rplace-loader.gif" alt="rplace.live" class="loading-logo"/>
@@ -269,17 +186,25 @@
 				</div>
 			</div>
 
-			<button type="button" noselect id="closebtn" class="layout" title="More">...</button>
+			<button type="button" noselect id="profileBtn" class="layout" title="Profil">
+				<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+			</button>
 			<r-position-indicator id="positionIndicator" class="layout"></r-position-indicator>
-			<button type="button" noselect id="helpbtn" class="layout" title="Help">
+			<button type="button" noselect id="helpbtn" class="layout" title="Yardım">
 				<img class="icon-image" alt="?" src="svg/help.svg">
 			</button>
-			<button type="button" id="place" class="layout" translate="connecting" noselect>Connecting...</button>
-			<button type="button" id="chatbtn" class="layout" noselect>
-				<img alt="Chat" class="icon-image" src="svg/chat.svg" style="width:16px; height:21px">
-			</button>
+			
+			<button type="button" noselect id="closebtn" class="layout" title="More" style="display:none !important;">...</button>
+			<button type="button" id="chatbtn" class="layout" noselect style="display:none !important;">Chat</button>
 
-			<div id="chatPanel">
+			<div id="bottomControls" class="layout">
+				<button type="button" id="place" translate="connecting" noselect>BAĞLANIYOR...</button>
+				<button type="button" id="freeDrawToggle" title="Serbest Mod" noselect style="display: none;">
+					<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+				</button>
+			</div>
+
+			<div id="chatPanel" style="display:none !important;">
 				<div id="namePanel">
 					<div class="name-panel-header">
 						<h2 id="namePanelHeader" translate="nicknameToContinue">Enter a nickname to continue:</h2>
@@ -379,7 +304,7 @@
 				</div>
 			</div>
 
-			<div id="advancedViewMenu" class="toast-menu">
+			<div id="advancedViewMenu" class="toast-menu" style="display:none !important;">
 				<div class="menu-header">
 					<h2>Advanced view options:</h2>
 					<r-close-icon id="avmCloseButton" class="active"></r-close-icon>
@@ -414,7 +339,7 @@
 					</ul>
 				</div>
 			</div>
-			<div id="spectateMenu" class="toast-menu">
+			<div id="spectateMenu" class="toast-menu" style="display:none !important;">
 				<div class="menu-header">
 					<h2>Spectate:</h2>
 					<r-close-icon id="spectateCloseButton" class="active"></r-close-icon>
@@ -428,7 +353,7 @@
 					<p id="spectateStatusLabel"></p>
 				</div>
 			</div>
-			<div id="overlayMenuOld" noselect class="toast-menu">
+			<div id="overlayMenuOld" noselect class="toast-menu" style="display:none !important;">
 				<div class="menu-header">
 					<h2 title="Make use of a canvas overlay image in order to help yourself better position your pixels" style="display: inline;flex-grow: 1;">Overlay:</h2>
 					<r-close-icon id="overlayMenuOldCloseButton" class="active"></r-close-icon>
@@ -460,7 +385,7 @@
 					</div>
 				</div>
 			</div>
-			<dialog id="overlayMenu" class="dialog-modal" noselect>
+			<dialog id="overlayMenu" class="dialog-modal" noselect style="display:none !important;">
 				<div style="display: flex;">
 					<h2 title="Make use of a canvas overlay image in order to help yourself better position your pixels" style="display: inline;flex-grow: 1;">Overlay:</h2>
 					<r-close-icon id="overlayMenuCloseButton" class="active"></r-close-icon>
@@ -512,7 +437,7 @@
 					</div>
 				</div>
 			</dialog>
-			<div id="turnstileMenu" class="toast-menu noselect">
+			<div id="turnstileMenu" class="toast-menu noselect" style="display:none !important;">
 				<div class="menu-header">
 					<h2>Verifying session...</h2>
 				</div>
@@ -521,7 +446,7 @@
 					<div id="turnstileContainer"></div>
 				</div>
 			</div>
-			<div id="hCaptchaMenu" class="toast-menu noselect">
+			<div id="hCaptchaMenu" class="toast-menu noselect" style="display:none !important;">
 				<div class="menu-header">
 					<h2>Complete captcha</h2>
 				</div>
@@ -531,7 +456,7 @@
 					<button type="button" id="hCaptchaSubmitButton">Continue</button>
 				</div>
 			</div>
-			<div id="punishmentMenu" class="toast-menu">
+			<div id="punishmentMenu" class="toast-menu" style="display:none !important;">
 				<div class="menu-header">
 					<h2>Punishment notice:</h2>
 				</div>
@@ -551,7 +476,7 @@
 					</div>
 				</div>
 			</div>
-			<div id="moderationMenu" noselect="" mode="delete" class="toast-menu">
+			<div id="moderationMenu" noselect="" mode="delete" class="toast-menu" style="display:none !important;">
 				<div class="menu-header">
 					<h2 style="display: inline;flex-grow: 1;">Moderation options:</h2>
 					<r-close-icon id="modCloseButton"></r-close-icon>
@@ -613,7 +538,7 @@
 					</div>
 				</div>
 			</div>
-			<dialog id="captchaPopup" class="modal">
+			<dialog id="captchaPopup" class="modal" style="display:none !important;">
 				<div>
 					<canvas id="captchaCanvas" width="500" height="800"></canvas>
 					<h1 noselect style="color: grey;">🤔 Sorry for interrupting, but</h1>
@@ -625,67 +550,43 @@
 					<div id="captchaOptions"></div>
 				</div>
 			</dialog>
-			<dialog id="popup">
+			<dialog id="popup" style="display:none !important;">
 				<div>
 					<r-close-icon id="popupCloseButton"></r-close-icon>
 					<span noselect id="popupTitle" style="font-size: 1.2em; font-weight: bold;"></span>
 					<iframe id="popupEmbed"></iframe>
 				</div>
 			</dialog>
-			<dialog id="modal" class="modal about-modal">
-				<div class="modal-header">
-					<h2>Place</h2>
-					<r-close-icon id="modalCloseButton"></r-close-icon>
+			
+			<dialog id="modal" class="modal about-modal" style="background: #2b2b36; color: white; border: 1px solid #444; border-radius: 15px;">
+				<div class="modal-header" style="border-bottom: 1px solid #444;">
+					<h2 style="color: #ff4500; margin: 0;">ARplace</h2>
+					<r-close-icon id="modalCloseButton" style="fill: white; cursor: pointer;"></r-close-icon>
 				</div>
-				<div class="modal-content" translate="modalAboutContent">
-					There is an empty canvas.<br><br>
-					You may place a tile upon it, but you must wait to place another.<br><br>
-					Individually you can create something.<br><br>
-					Together you can create something more.<br><br>
+				<div class="modal-content" style="font-size: 15px; line-height: 1.5; padding: 20px;">
+					Boş bir tuval var.<br><br>
+					Üzerine renkli bir piksel koyabilirsiniz ama yenisini yerleştirmek için beklemeniz gerekir.<br><br>
+					Tek başınıza bir şeyler yapabilirsiniz.<br><br>
+					Topluluk ile daha fazlasını yapabilirsiniz.<br><br>
+					
+					<a href="https://www.instagram.com/ymirtap?igsh=MWFxYXBzY2F5czk4bw==" target="_blank" style="display: flex; align-items: center; gap: 10px; background: #1e1e24; padding: 10px 15px; border-radius: 50px; text-decoration: none; color: white; margin-bottom: 10px; border: 1px solid #444; transition: 0.2s;">
+						<img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram" style="width:24px; height:24px;"> ymirtap
+					</a>
+					<a href="https://www.tiktok.com/@_ymirart_?_r=1&_t=ZS-95hs8HjmxBx" target="_blank" style="display: flex; align-items: center; gap: 10px; background: #1e1e24; padding: 10px 15px; border-radius: 50px; text-decoration: none; color: white; border: 1px solid #444; transition: 0.2s;">
+						<img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" alt="TikTok" style="width:24px; height:24px;"> _ymirart_
+					</a>
 				</div>
-				<div class="modal-install" id="modalInstallButton" noselect>Install rplace.live web app</div>
-				<button id="modalCopyrightButton" type="button" title="Open secret settings" class="modal-content copyright-label">
-					© Zekiah-A, BlobKat
-				</button>
-				<div class="modal-footer">
-					<img noselect="" alt="Place Logo" height="40" width="40" src="images/rplace.png" style="position: absolute;left: 50%;transform: translateX(-50%);opacity: 0.2;">
-					<button type="button" id="muteButton" noselect class="modal-footer-button" title="Enable sounds">
-						<image id="muteButtonImage" class="icon-image" src="svg/muted.svg"></image>
-					</button>
-					<div id="themeDropParent" noselect class="modal-footer-button" style="width: auto; align-items: center;justify-content: center;">
-						<span style="white-space: nowrap;" id="themeDropName">🖌️ r/place 2022</span>
-						<svg class="icon-image" style="vertical-align: bottom;" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24">
-							<path d="M480-345 240-585l43-43 197 198 197-197 43 43-240 239Z"></path>
-						</svg>
-						<div id="themeDrop" style="top: 40px;" class="context-menu">
-							<menu>
-								<li theme="r/place 2022" variant="">
-									<button type="button">r/place 2022 (Classic)</button>
-								</li>
-								<li theme="r/place 2022" variant="dark">
-									<button type="button">r/place 2022 (Dark)</button>
-								</li>
-								<li theme="r/place 2023" variant="">
-									<button type="button">r/place 2023 (Classic)</button>
-								</li>
-								<hr style="opacity: 0.2">
-								<li theme="r/place 2022" variant="dark" effects="darkplace">
-									<button type="button">darkplace.live (April fools)</button></li>
-								<li theme="r/place 2022" variant="" effects="winter">
-									<button type="button">snowplace.live (December 2023)</button>
-								</li>
-								<li theme="r/place 2022" variant="merry" effects="winter">
-									<button type="button">merryplace.live (December 2024)</button>
-								</li>
-								</menu>
-						</div>
-					</div>
-					<button type="button" id="placeChatButton" class="modal-footer-button" title="Enable canvas chat">
-						<img id="placeChatButtonImage" src="svg/place-chat.svg" width="60">
+				
+				<div class="modal-footer" style="border-top: 1px solid #444; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+					<div style="font-size: 14px; color: #aaa; font-weight: bold;">© Kerem.K</div>
+					<button type="button" id="muteBtnCapsule" title="Sesi Aç/Kapat" style="display: inline-flex; align-items: center; justify-content: center; background: white; border-radius: 50px; width: 44px; height: 44px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+						<svg id="soundIconOn" style="width:22px; height:22px; display:block;" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+						<svg id="soundIconOff" style="width:22px; height:22px; display:none;" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.09V4z"/></svg>
 					</button>
 				</div>
 			</dialog>
-			<dialog id="secretSettingsDialog" class="modal">
+			
+			<dialog id="secretSettingsDialog" class="modal" style="display:none !important;">
 				<div class="modal-header">
 					<h2>Secret settings:</h2>
 					<r-close-icon id="secretSettingsCloseButton"></r-close-icon>	
@@ -737,7 +638,7 @@
 				<div class="buttons">
 					<button type="button" id="pcancel" class="pcancel" title="Cancel">
 						<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" data-name="icons final" viewBox="0 0 20 20">
-							<path d="M18.442 2.442l-.884-.884L10 9.116 2.442 1.558l-.884.884L9.116 10l-7.558 7.558.884.884L10 10.884l7.558 7.558.884-.884L10.884 10l7.558-7.558z"></path>
+							<path d="M18.442 2.442l-.884-.884L10 9.116 2.442 1.558l-.884.884L9.116 10l-7.558 7.558.884.884L9.116 10l-7.558 7.558.884.884L10 10.884l7.558 7.558.884-.884L10.884 10l7.558-7.558z"></path>
 						</svg>
 					</button>
 					<button type="button" id="pok" class="pok" title="Confirm place pixel">
