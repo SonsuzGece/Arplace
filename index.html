@@ -7,13 +7,6 @@
 	<meta name="mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-title" content="place">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta http-equiv="Content-Security-Policy" content="
-		script-src 'self' blob: https://rplace.live https://server.rplace.live https://challenges.cloudflare.com https://cdn.jsdelivr.net https://hcaptcha.com https://js.hcaptcha.com https://*.hcaptcha.com https://blobk.at 'sha256-Cs5f2fW81V3D4N76FfAiPquSS3ojIC24ZjMqZRNmI5Q=' 'sha256-ITnBzx8eq4hpLnGaGqQI2YhvzuvraK+Aac9e/wNmcfo=';
-		frame-src 'self' https://rplace.live https://challenges.cloudflare.com https://hcaptcha.com https://*.hcaptcha.com https://www.youtube-nocookie.com;
-		object-src 'none';
-		worker-src 'self' blob: https://rplace.live https://server.rplace.live http://localhost:8082;
-		style-src 'self' 'unsafe-inline' https://rplace.live https://server.rplace.live https://fonts.googleapis.com https://hcaptcha.com https://*.hcaptcha.com;
-		connect-src 'self' https://rplace.live https://server.rplace.live http://localhost:8082 http://raw.githubusercontent.com https://hcaptcha.com https://*.hcaptcha.com ws://localhost:8082 wss://server.rplace.live;">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<meta property="og:title" content="r/place 2"/>
 	<meta name="description" content="Faithful recreation of reddit's r/place event, running forever">
@@ -23,14 +16,11 @@
 	<title>r/place: rplace.live</title>
 	<link rel="stylesheet" href="/styles.css">
 	<link rel="stylesheet" href="/shared.css">
-	<!--Shared resources-->
 	<script type="module" src="/src/defaults.js"></script>
 	<script type="module" src="/src/shared.js"></script>
 	<script type="module" src="/src/shared-elements.js"></script>
-	<!--Services-->
 	<script type="module" src="/src/services/account-manager.js"></script>
 	<script type="module" src="/src/services/quests-manager.js"></script>
-	<!--Page scripts-->
 	<script type="module" src="/src/pages/index/loading-screen.js"></script>
 	<script type="module" src="/src/pages/index/event-timer.js"></script>
 	<script type="module" src="/src/pages/index/august21-event.js"></script>
@@ -47,14 +37,9 @@
 	<script type="module" src="/src/pages/index/palette.js"></script>
 	<script type="module" src="/src/pages/index/popup.js"></script>
 	<script type="module" src="/src/pages/index/hcaptcha-dialog.js"></script>
-	<!--CommonJS-->
 	<script>window.addEventListener("undefineglobals",(()=>{delete WebSocket,delete Worker,Object.defineProperty(window,"eval",{value:function(){throw new Error},writable:!1,configurable:!1})}));</script>
-	<!--Entrypoint-->
 	<script type="module" src="/src/pages/index/index.js"></script>
-	<!--External-->
-	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><!--onload=onloadHCaptcha-->
-	<!--Science!-->
-	<script src="https://blobk.at/science.js" type="module"></script>
+	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><script src="https://blobk.at/science.js" type="module"></script>
 </head>
 	<body>
 		<div id="loadingScreen">
@@ -70,12 +55,9 @@
 			</div>
 		</div>
 		<div id="maincontent">
-			<!-- Special effects background -->
 			<div id="bgWrapper">
-				<!--Special background effects or features can be rendered within here-->
-			</div>
+				</div>
 
-			<!-- Main game viewport -->
 			<div id="viewport" noselect>
 				<div id="canvparent1" noselect>
 					<img id="edge" height="226" width="290" src="images/snoo-edge.png" alt="Snoo">
@@ -96,18 +78,16 @@
 					</menu>
 				</div>
 				<div id="placeChatMessages">
-					<!--Container for canvas place chat messages-->
 					<div class="place-chat" id="idPosition" style="display: none;">
 						<div class="content">
 							<span translate="placedBy">Placed by:</span>
-							<span id="idPositionPlacer"><!--placer name||id--></span>
+							<span id="idPositionPlacer"></span>
 						</div>
 						<div class="arrow"></div>
 					</div>
 				</div>
 			</div>
 
-			<!-- Game layout/HUD Elements -->
 			<button type="button" noselect id="closebtn" class="layout" title="More">...</button>
 			<r-position-indicator id="positionIndicator" class="layout"></r-position-indicator>
 			<button type="button" noselect id="helpbtn" class="layout" title="Help">
@@ -118,7 +98,6 @@
 				<img alt="Chat" class="icon-image" src="/svg/chat.svg" style="width:16px; height:21px">
 			</button>
 
-			<!-- Chat panel -->
 			<div id="chatPanel">
 				<div id="namePanel">
 					<div class="name-panel-header">
@@ -128,8 +107,7 @@
 					<h4 id="nicknameSubheading" style="color: lightgrey;" translate="pleaseBeRespectful">Please be respectful and try not to spam!</h4>
 					<br>
 					<div class="name-input-container">
-						<input id="nameInput" type="text" placeholder="Enter nickname..." maxlength="16"> <!--TODO: translate="enterNickname"-->
-						<button id="nameButton" type="button" title="Confirm name">
+						<input id="nameInput" type="text" placeholder="Enter nickname..." maxlength="16"> <button id="nameButton" type="button" title="Confirm name">
 							<img alt="✔️" src="/svg/green-checkmark.svg">
 						</button>
 					</div>
@@ -145,7 +123,7 @@
 								</svg>	
 							</button>
 							<div id="channelDrop" class="context-menu">
-								<menu id="channelDropMenu"><!--Language channel options--></menu>
+								<menu id="channelDropMenu"></menu>
 							</div>
 						</span>
 						<button type="button" id="channelMineButton" class="channel-button">
@@ -183,18 +161,17 @@
 					</menu>
 				</div>
 				<r-emoji-panel id="chatReactionsPanel"></r-emoji-panel>
-				<!-- If ad hidden by extension, fall back to standard chat ad -->
 				<a id="chatAd" target="_blank" rel="noopener">
 					<button type="button" id="chatAdCloseButton" class="chat-ad-close">x</button>
 				</a>
 				<span id="adLabel" style="display: none; opacity: 0; align-self: center;" translate="adHidden">Ad hidden for 14 days!</span>
 				<button type="button" id="chatPreviousButton" class="horizontal-labeled-separator" noselect><hr><span>See previous messages</span><hr></button>
-				<div id="chatMessages"><!--Live chat messages--></div>
+				<div id="chatMessages"></div>
 				<div id="messageTypePanel" class="chat-input-panel" closed>
 					<input type="button" class="messageTypeBtn" title="Use the shortcut 'ctrl+enter' to send quickly" style="left: 5px;" translate="putOnCanvas" value="🫧 Put on canvas">
 					<input type="button" class="messageTypeBtn" title="Use the shortcut 'enter' to send quickly" style="right: 5px;" translate="sendInLiveChat" value="📨 Send in live chat">
 				</div>
-				<div id="messageEmojisPanel" class="chat-input-panel" closed><!--Message emoji suggestions--></div>
+				<div id="messageEmojisPanel" class="chat-input-panel" closed></div>
 				<div id="messageReplyPanel" class="chat-input-panel" closed>
 					<div id="messageReplyLabel">Replying to:</div>
 					<button type="button" id="messageCancelReplyButton" title="Cancel reply">
@@ -221,7 +198,6 @@
 				</div>
 			</div>
 
-			<!-- Popups and dialogs -->
 			<div id="advancedViewMenu" class="toast-menu">
 				<div class="menu-header">
 					<h2>Advanced view options:</h2>
@@ -463,9 +439,9 @@
 					<p noselect translate="captchaPrompt"><em>Solve this small captcha to help keep rplace.live fun for all...</em></p>
 					<hr>
 					<h2 id="captchaLabel">Please click the button containing the emoji you see below</h2>
-					<div id="captchaImagePosition"><!--captcha canvas image space--></div>
+					<div id="captchaImagePosition"></div>
 					<a style="text-align: center;" href=".">(generate new captcha)</a>
-					<div id="captchaOptions"><!--clickable captcha answers--></div>
+					<div id="captchaOptions"></div>
 				</div>
 			</dialog>
 			<dialog id="popup">
@@ -520,8 +496,7 @@
 								<li theme="r/place 2022" variant="merry" effects="winter">
 									<button type="button">merryplace.live (December 2024)</button>
 								</li>
-								<!--<li theme="goldplace" variant=""><span>goldplace.live (August 21st 2025)</span></li>-->
-							</menu>
+								</menu>
 						</div>
 					</div>
 					<button type="button" id="placeChatButton" class="modal-footer-button" title="Enable canvas chat">
@@ -609,18 +584,6 @@
 				</svg>
 				<div class="countdown countdown-header">SPECIAL EVENT</div>
 			</div>
-			<div class="countdown">
-				Event in 00:00:00
-			</div>
-			<div class="coverer">
-				<img src="images/rplace.png" width="128" style="image-rendering: pixelated;" alt="rplace.live logo">
-				<span class="coverer-title">rplace.live</span>
-				<span class="coverer-description">Special event</span>
-			</div>
-			<div class="progressbar"><!--progress bar--></div>
 		</div>
 	</body>
-	<% if (!isDev) { %>
-		<script src="https://cdn.jsdelivr.net/npm/disable-devtool" disable-devtool-auto disable-menu="false" md5="60961bf94b2a5d69f98efa9c2ab2caf9"></script>
-	<% } %>
 </html>
