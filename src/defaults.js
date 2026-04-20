@@ -290,7 +290,19 @@ export const MAX_CHANNEL_MESSAGES = 100
 
 // Canvas defaults
 export const DEFAULT_PALETTE_USABLE_REGION = { start: 0, end: 32 };
-export const DEFAULT_PALETTE = [0xff1a006d, 0xff3900be, 0xff0045ff, 0xff00a8ff, 0xff35d6ff, 0xffb8f8ff, 0xff68a300, 0xff78cc00, 0xff56ed7e, 0xff6f7500, 0xffaa9e00, 0xffc0cc00, 0xffa45024, 0xffea9036, 0xfff4e951, 0xffc13a49, 0xffff5c6a, 0xffffb394, 0xff9f1e81, 0xffc04ab4, 0xffffabe4, 0xff7f10de, 0xff8138ff, 0xffaa99ff, 0xff2f486d, 0xff26699c, 0xff70b4ff, 0xff000000, 0xff525251, 0xff908d89, 0xffd9d7d4, 0xffffffff];
+
+// --- 4x8 IZGARAYA GÖRE HESAPLANMIŞ GERÇEK PİKSEL SANATI (R/PLACE) RENKLERİ ---
+export const DEFAULT_PALETTE = [
+	// 1. Sıra (Siyah, Griler, Beyaz, Pembe, Kırmızı)
+	0xff000000, 0xff515252, 0xff898D90, 0xffD4D7D9, 0xffE8E8E8, 0xffFFFFFF, 0xffFFA8B5, 0xffFF4500,
+	// 2. Sıra (Koyu Kırmızı, Bordo, Kahverengi, Turuncu, Açık Yeşil, Yeşil, Koyu Yeşil, Mavi)
+	0xffE81224, 0xffBE0039, 0xff7A0838, 0xffFFA800, 0xff7EED56, 0xff00CC78, 0xff00A368, 0xff2450A4,
+	// 3. Sıra (Açık Mavi, Camgöbeği, Turkuaz, Eflatun, Mor, Koyu Mor, Kehribar, Sarı)
+	0xff3690EA, 0xff51E9F4, 0xff00CCC0, 0xffE4ABFF, 0xffB44AC0, 0xff811E9F, 0xffFF9933, 0xffFFD635,
+	// 4. Sıra (Kahverengi, Koyu Turkuaz, Çivit Mavisi, Pas, Zeytin Yeşili, Çelik Grisi, Soluk Mavi, Soluk Sarı)
+	0xff9C6926, 0xff00756F, 0xff493AC1, 0xffA1522E, 0xff819A32, 0xff839098, 0xff94B3FF, 0xffFFF8B8
+];
+
 export const DEFAULT_WIDTH = 2000;
 export const DEFAULT_HEIGHT = 2000;
 export const DEFAULT_COOLDOWN = 0;
