@@ -31,6 +31,22 @@ export function connect(device, server = "", vip = undefined) {
     if (connectStatus !== "initial" && connectStatus !== "disconnected") return;
     connectStatus = "connected";
 
+    // --- ZORUNLU TEST KODU BAŞLANGICI ---
+    // Site açıldığında 1 saniye sonra ekrana uyarı fırlatacak
+    setTimeout(() => {
+        alert("Test başlıyor... Supabase'e zorla veri yazılacak.");
+        supabase.from('pixels').upsert({ x: 999, y: 999, color: "5" }).then(({data, error}) => {
+            if (error) {
+                alert("SUPABASE BİZİ REDDETTİ! Hata:\n" + error.message + "\nDetay: " + error.details);
+            } else {
+                alert("MUCİZE! Supabase'e veri başarıyla yazıldı!");
+            }
+        }).catch(err => {
+            alert("AĞ HATASI: Supabase'e hiç ulaşılamadı!\n" + err);
+        });
+    }, 1000);
+    // --- ZORUNLU TEST KODU BİTİŞİ ---
+
     setSize(WIDTH, HEIGHT);
 
     setTimeout(() => {
@@ -44,11 +60,9 @@ export function connect(device, server = "", vip = undefined) {
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // EKRAN YENİLENDİĞİNDE VERİYİ ÇEK (Ajan eklendi)
     supabase.from('pixels').select('*').then(({ data, error }) => {
         if (error) console.error("Veri çekme hatası:", error);
         if (data && data.length > 0) {
-            console.log("Supabase'den " + data.length + " piksel geldi!");
             data.forEach(p => {
                 const index = p.x % WIDTH + (p.y % HEIGHT) * WIDTH;
                 setPixelI(index, parseInt(p.color));
@@ -79,13 +93,8 @@ export function sendServerMessage(name, args) {
             setPixelI(position, color);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            // VERİTABANINA KAYDET (Ajan eklendi)
             supabase.from('pixels').upsert({ x: x, y: y, color: color.toString() }).then(({error}) => {
-                if (error) {
-                    console.error("Kayıt hatası:", error);
-                } else {
-                    console.log("Piksel başarıyla veritabanına yazıldı!");
-                }
+                if (error) console.error("Kayıt hatası:", error);
             });
             
             setCooldown(Date.now());
