@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arplace — Admin Paneli</title>
+    <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+    <!--
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  SUPABASE'E EKLEMENİZ GEREKEN SQL FONKSİYONLARI                 ║
+    ║  → Supabase Dashboard > SQL Editor > New Query > Çalıştır        ║
+    ╠══════════════════════════════════════════════════════════════════╣
+    ║
+
+    -- Admin: tüm kullanıcıları getir (token doğrulamalı)
+    CREATE OR REPLACE FUNCTION admin_get_users(p_admin_token TEXT)
+    RETURNS TABLE(id UUID, username TEXT, role TEXT, cooldown_ms INTEGER,
+                  created_at TIMESTAMPTZ, pixel_count BIGINT)
+    LANGUAGE plpgsql AS $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE access_token = p_admin_token AND role = 'admin') THEN
+            RAISE EXCEPTION 'Yetkisiz erişim';
+        END IF;
+        RETURN QUERY
+            SELECT p.id, p.username, p.role, p.cooldown_ms, p.created_at,
+                   (SELECT COUNT(*) FROM public.pixels px WHERE px.user_id = p.id)
+            FROM public.profiles p
+            ORDER BY p.created_at DESC;
+    END; $$;
+
+    -- Admin: yeni üye oluştur
+    CREATE OR REPLACE FUNCTION admin_create_user(
+        p_admin_token TEXT, p_username TEXT, p_role TEXT)
+    RETURNS TEXT LANGUAGE plpgsql AS $$
+    DECLARE
+        v_new_token TEXT;
+        chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+        i INT;
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE access_token = p_admin_token AND role = 'admin') THEN
+            RAISE EXCEPTION 'Yetkisiz erişim';
+        END IF;
+        v_new_token := '';
+        FOR i IN 1..8 LOOP
+            v_new_token := v_new_token || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+        END LOOP;
+        INSERT INTO public.profiles (username, access_token, role,
+            cooldown_ms) VALUES (p_username, v_new_token, p_role,
+            CASE WHEN p_role = 'vip' THEN 0 ELSE 1000 END);
+        RETURN v_new_token;
+    END; $$;
+
+    -- Admin: rol ve cooldown güncelle
+    CREATE OR REPLACE FUNCTION admin_update_role(
+        p_admin_token TEXT, p_user_id UUID, p_new_role TEXT, p_cooldown_ms INTEGER)
+    RETURNS BOOLEAN LANGUAGE plpgsql AS $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE access_token = p_admin_token AND role = 'admin') THEN
+            RETURN FALSE;
+        END IF;
+        UPDATE public.profiles SET role = p_new_role, cooldown_ms = p_cooldown_ms
+        WHERE id = p_user_id;
+        RETURN TRUE;
+    END; $$;
+
+    -- Admin: kullanıcı adı değiştir
+    CREATE OR REPLACE FUNCTION admin_update_username(
+        p_admin_token TEXT, p_user_id UUID, p_new_username TEXT)
+    RETURNS BOOLEAN LANGUAGE plpgsql AS $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE access_token = p_admin_token AND role = 'admin') THEN
+            RETURN FALSE;
+        END IF;
+        UPDATE public.profiles SET username = p_new_username WHERE id = p_user_id;
+        RETURN TRUE;
+    END; $$;
+
+    -- Admin: kullanıcının tüm piksellerini sil
+    CREATE OR REPLACE FUNCTION admin_clear_pixels(
+        p_admin_token TEXT, p_user_id UUID)
+    RETURNS BIGINT LANGUAGE plpgsql AS $$
+    DECLARE v_count BIGINT;
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE access_token = p_admin_token AND role = 'admin') THEN
+            RETURN -1;
+        END IF;
+        DELETE FROM public.pixels WHERE user_id = p_user_id;
+        GET DIAGNOSTICS v_count = ROW_COUNT;
+        RETURN v_count;
+    END; $$;
+
+    -- Admin: kullanıcıyı tamamen sil
+    CREATE OR REPLACE FUNCTION admin_delete_user(
+        p_admin_token TEXT, p_user_id UUID)
+    RETURNS BOOLEAN LANGUAGE plpgsql AS $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE access_token = p_admin_token AND role = 'admin') THEN
+            RETURN FALSE;
+        END IF;
+        DELETE FROM public.pixels  WHERE user_id = p_user_id;
+        DELETE FROM public.profiles WHERE id = p_user_id;
+        RETURN TRUE;
+    END; $$;
+
+    ║                                                                  ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    -->
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0f0f15;
+            --surface: #1a1a28;
+            --surface2: #22223a;
+            --border: #2e2e4a;
+            --accent: #ff4500;
+            --accent2: #ff6a35;
+            --text: #e8e8f0;
+            --muted: #888899;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --vip: #a855f7;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── Giriş Ekranı ─────────────────────────── */
+        #loginScreen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .login-card .logo {
+            font-size: 40px;
+            margin-bottom: 8px;
+        }
+        .login-card h1 {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+        .login-card p {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+        .login-card input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            padding: 14px 16px;
+            font-size: 15px;
+            font-family: monospace;
+            letter-spacing: 2px;
+            outline: none;
+            margin-bottom: 14px;
+            transition: border-color 0.2s;
+        }
+        .login-card input:focus { border-color: var(--accent); }
+        .btn-primary {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 12px;
+            color: white;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        #loginError {
+            margin-top: 14px;
+            color: var(--danger);
+            font-size: 13px;
+            display: none;
+        }
+
+        /* ── Ana Panel ────────────────────────────── */
+        #adminPanel { display: none; }
+
+        /* Topbar */
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar-logo {
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--accent);
+        }
+        .topbar-badge {
+            background: var(--danger);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+        .admin-name {
+            color: var(--muted);
+            font-size: 13px;
+        }
+        #logoutBtn {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: var(--muted);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        #logoutBtn:hover { border-color: var(--danger); color: var(--danger); }
+
+        /* İçerik alanı */
+        .content {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 28px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        /* Stat kartları */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+        }
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .stat-card .stat-value {
+            font-size: 26px;
+            font-weight: 800;
+        }
+        .stat-card.orange .stat-value { color: var(--accent); }
+        .stat-card.purple .stat-value { color: var(--vip); }
+        .stat-card.green  .stat-value { color: var(--success); }
+        .stat-card.blue   .stat-value { color: #60a5fa; }
+
+        /* Bölüm kartları */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .card-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .card-body { padding: 22px; }
+
+        /* Üye oluşturma formu */
+        .form-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 160px;
+        }
+        .form-group label {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input,
+        .form-group select {
+            background: var(--surface2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            padding: 11px 14px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus { border-color: var(--accent); }
+        .form-group select option { background: var(--surface2); }
+
+        .btn {
+            padding: 11px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { opacity: 0.85; }
+        .btn-danger  { background: transparent; border: 1.5px solid var(--danger); color: var(--danger); }
+        .btn-danger:hover  { background: var(--danger); color: white; }
+        .btn-warning { background: transparent; border: 1.5px solid var(--warning); color: var(--warning); }
+        .btn-warning:hover { background: var(--warning); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* Token kutusu */
+        .token-result {
+            display: none;
+            margin-top: 16px;
+            background: var(--surface2);
+            border: 1.5px solid var(--success);
+            border-radius: 12px;
+            padding: 16px 18px;
+        }
+        .token-result.show { display: block; }
+        .token-result label {
+            font-size: 12px;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 6px;
+        }
+        .token-value {
+            font-family: monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--success);
+            letter-spacing: 3px;
+            word-break: break-all;
+        }
+        .copy-btn {
+            margin-top: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            padding: 6px 14px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .copy-btn:hover { color: var(--text); }
+
+        /* Üye tablosu */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        thead th {
+            padding: 12px 14px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+        }
+        tbody tr:hover { background: var(--surface2); }
+        tbody tr:last-child { border-bottom: none; }
+        td { padding: 12px 14px; vertical-align: middle; }
+
+        .role-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .role-user  { background: rgba(136,136,153,0.15); color: var(--muted); }
+        .role-vip   { background: rgba(168,85,247,0.15);  color: var(--vip); }
+        .role-admin { background: rgba(239,68,68,0.15);   color: var(--danger); }
+
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* Arama */
+        #searchInput {
+            background: var(--surface2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            padding: 9px 14px;
+            font-size: 14px;
+            outline: none;
+            width: 220px;
+            transition: border-color 0.2s;
+        }
+        #searchInput:focus { border-color: var(--accent); }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            display: none;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            width: 100%;
+            max-width: 420px;
+            padding: 28px;
+        }
+        .modal-box h3 {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .modal-box p {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        .modal-box .form-group { margin-bottom: 14px; }
+        .modal-footer-btns {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-footer-btns .btn { flex: 1; }
+        .btn-cancel {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--muted);
+            border-radius: 10px;
+            padding: 11px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* Toast bildirimleri */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            animation: slideUp 0.3s ease;
+            max-width: 320px;
+            pointer-events: auto;
+        }
+        .toast.success { border-color: var(--success); color: var(--success); }
+        .toast.error   { border-color: var(--danger);  color: var(--danger);  }
+        .toast.info    { border-color: #60a5fa;         color: #60a5fa;        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Boş tablo mesajı */
+        .empty-row td {
+            text-align: center;
+            color: var(--muted);
+            padding: 32px;
+        }
+
+        @media (max-width: 600px) {
+            .topbar { flex-wrap: wrap; gap: 10px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .actions-cell .btn-sm span { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ─── GİRİŞ EKRANI ──────────────────────────────────────────────────────── -->
+<div id="loginScreen">
+    <div class="login-card">
+        <div class="logo">🎨</div>
+        <h1>Arplace Admin</h1>
+        <p>Admin access token'ınızı girerek panele erişin.</p>
+        <input type="text" id="adminTokenInput" placeholder="Admin Token"
+               maxlength="20" autocomplete="off" spellcheck="false">
+        <button class="btn-primary" onclick="adminLogin()">Giriş Yap</button>
+        <p id="loginError">❌ Geçersiz token veya yetki yok.</p>
+    </div>
+</div>
+
+<!-- ─── ANA PANEL ─────────────────────────────────────────────────────────── -->
+<div id="adminPanel">
+
+    <!-- Topbar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <span class="topbar-logo">Arplace</span>
+            <span class="topbar-badge">Admin</span>
+            <span class="admin-name" id="adminDisplayName"></span>
+        </div>
+        <button id="logoutBtn" onclick="adminLogout()">⏻ Çıkış</button>
+    </div>
+
+    <!-- İçerik -->
+    <div class="content">
+
+        <!-- İstatistikler -->
+        <div class="stats-grid">
+            <div class="stat-card orange">
+                <div class="stat-label">Toplam Üye</div>
+                <div class="stat-value" id="statTotal">—</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-label">VIP Üye</div>
+                <div class="stat-value" id="statVip">—</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-label">Toplam Piksel</div>
+                <div class="stat-value" id="statPixels">—</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-label">Normal Üye</div>
+                <div class="stat-value" id="statUsers">—</div>
+            </div>
+        </div>
+
+        <!-- Yeni Üye Oluştur -->
+        <div class="card">
+            <div class="card-header">
+                <h2>➕ Yeni Üye Oluştur</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Kullanıcı Adı</label>
+                        <input type="text" id="newUsername" placeholder="örn: ahmet123" maxlength="30">
+                    </div>
+                    <div class="form-group" style="max-width:160px;">
+                        <label>Rol</label>
+                        <select id="newRole">
+                            <option value="user">👤 Üye</option>
+                            <option value="vip">⭐ VIP</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:0;">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-success" onclick="createUser()">
+                            Token Oluştur
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Oluşturulan token göster -->
+                <div class="token-result" id="tokenResult">
+                    <label>✅ Üye oluşturuldu! Bu token'ı üyeye gönderin:</label>
+                    <div class="token-value" id="newTokenDisplay">—</div>
+                    <button class="copy-btn" onclick="copyToken()">📋 Kopyala</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Üye Listesi -->
+        <div class="card">
+            <div class="card-header">
+                <h2>👥 Üye Listesi</h2>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" id="searchInput" placeholder="🔍 Ara..." oninput="filterTable()">
+                    <button class="btn btn-warning" onclick="loadUsers()" style="font-size:13px;">
+                        🔄 Yenile
+                    </button>
+                </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <div class="table-wrapper">
+                    <table id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Kullanıcı Adı</th>
+                                <th>Rol</th>
+                                <th>Piksel</th>
+                                <th>Cooldown</th>
+                                <th>Kayıt Tarihi</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr class="empty-row"><td colspan="6">Yükleniyor...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ─── MODALLER ──────────────────────────────────────────────────────────── -->
+
+<!-- Kullanıcı Adı Değiştir -->
+<div class="modal-backdrop" id="renameModal">
+    <div class="modal-box">
+        <h3>✏️ Kullanıcı Adını Değiştir</h3>
+        <p id="renameSubtitle">Kullanıcı için yeni ad girin.</p>
+        <div class="form-group">
+            <label>Yeni Kullanıcı Adı</label>
+            <input type="text" id="renameInput" placeholder="Yeni ad" maxlength="30">
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-cancel" onclick="closeModal('renameModal')">İptal</button>
+            <button class="btn btn-success" onclick="confirmRename()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- Rol Değiştir -->
+<div class="modal-backdrop" id="roleModal">
+    <div class="modal-box">
+        <h3>🎭 Rolü Değiştir</h3>
+        <p id="roleSubtitle">Kullanıcı için yeni rol seçin.</p>
+        <div class="form-group">
+            <label>Yeni Rol</label>
+            <select id="roleSelect">
+                <option value="user">👤 Üye (1 sn cooldown)</option>
+                <option value="vip">⭐ VIP (cooldown yok)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Cooldown (ms) — VIP için 0</label>
+            <input type="number" id="cooldownInput" min="0" max="60000" step="100" placeholder="örn: 1000">
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-cancel" onclick="closeModal('roleModal')">İptal</button>
+            <button class="btn btn-success" onclick="confirmRoleChange()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- Piksel Sil Onay -->
+<div class="modal-backdrop" id="clearPixelsModal">
+    <div class="modal-box">
+        <h3>🗑️ Pikselleri Sil</h3>
+        <p id="clearPixelsSubtitle">Bu kullanıcının tüm pikselleri tuvalde silinecek. Emin misiniz?</p>
+        <div class="modal-footer-btns">
+            <button class="btn-cancel" onclick="closeModal('clearPixelsModal')">İptal</button>
+            <button class="btn btn-danger" onclick="confirmClearPixels()">Evet, Sil</button>
+        </div>
+    </div>
+</div>
+
+<!-- Üye Sil Onay -->
+<div class="modal-backdrop" id="deleteUserModal">
+    <div class="modal-box">
+        <h3>⛔ Üyeyi Sil</h3>
+        <p id="deleteUserSubtitle">Bu üye ve tüm pikselleri <strong>kalıcı olarak silinecek</strong>. Emin misiniz?</p>
+        <div class="modal-footer-btns">
+            <button class="btn-cancel" onclick="closeModal('deleteUserModal')">İptal</button>
+            <button class="btn btn-danger" onclick="confirmDeleteUser()">Evet, Sil</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
+
+<script>
+// ─── SUPABASE AYARLARI ──────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://gbtxljdoptlpqrkekyxj.supabase.co/rest/v1/';      // ← Buraya kendi URL'nizi yazın
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidHhsamRvcHRscHFya2VreXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzA2NDgsImV4cCI6MjA5MjIwNjY0OH0.WBTg_iHMEr9RpT0K-mUl13DRhzrjIiFP0Q1rpBb5wDM'; // ← Buraya kendi anon key'i yazın
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ─── DURUM ──────────────────────────────────────────────────────────────────
+let adminToken    = '';
+let adminUsername = '';
+let allUsers      = [];
+let activeUserId  = null;
+
+// ─── GİRİŞ ──────────────────────────────────────────────────────────────────
+async function adminLogin() {
+    const token = document.getElementById('adminTokenInput').value.trim();
+    if (!token) return;
+
+    const { data, error } = await db
+        .from('profiles')
+        .select('id, username, role')
+        .eq('access_token', token)
+        .single();
+
+    if (error || !data || data.role !== 'admin') {
+        document.getElementById('loginError').style.display = 'block';
+        return;
+    }
+
+    adminToken    = token;
+    adminUsername = data.username;
+    sessionStorage.setItem('arplace_admin_token', token);
+    sessionStorage.setItem('arplace_admin_name',  data.username);
+
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminPanel').style.display  = 'block';
+    document.getElementById('adminDisplayName').textContent = adminUsername;
+
+    loadUsers();
+}
+
+function adminLogout() {
+    sessionStorage.clear();
+    location.reload();
+}
+
+// Enter ile giriş
+document.getElementById('adminTokenInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') adminLogin();
+});
+
+// Sayfa yüklenince kayıtlı session kontrol et
+window.addEventListener('DOMContentLoaded', () => {
+    const savedToken = sessionStorage.getItem('arplace_admin_token');
+    const savedName  = sessionStorage.getItem('arplace_admin_name');
+    if (savedToken) {
+        adminToken    = savedToken;
+        adminUsername = savedName;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('adminPanel').style.display  = 'block';
+        document.getElementById('adminDisplayName').textContent = adminUsername;
+        loadUsers();
+    }
+});
+
+// ─── KULLANICILARI YÜKLE ─────────────────────────────────────────────────────
+async function loadUsers() {
+    document.getElementById('usersTableBody').innerHTML =
+        '<tr class="empty-row"><td colspan="6">Yükleniyor...</td></tr>';
+
+    const { data, error } = await db.rpc('admin_get_users', { p_admin_token: adminToken });
+    if (error || !data) {
+        showToast('Kullanıcılar yüklenemedi: ' + (error?.message || ''), 'error');
+        return;
+    }
+
+    allUsers = data;
+    renderTable(data);
+    updateStats(data);
+}
+
+function renderTable(users) {
+    const tbody = document.getElementById('usersTableBody');
+    if (!users.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Henüz üye yok.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+        const date = new Date(u.created_at).toLocaleDateString('tr-TR');
+        const roleCls = 'role-' + u.role;
+        const roleLabel = u.role === 'admin' ? '🔐 Admin' : u.role === 'vip' ? '⭐ VIP' : '👤 Üye';
+        const cdLabel = u.cooldown_ms === 0 ? 'Yok' : (u.cooldown_ms / 1000).toFixed(1) + 's';
+
+        return `
+        <tr data-id="${u.id}" data-role="${u.role}" data-username="${escHtml(u.username)}">
+            <td><strong>${escHtml(u.username)}</strong></td>
+            <td><span class="role-badge ${roleCls}">${roleLabel}</span></td>
+            <td>${u.pixel_count ?? 0}</td>
+            <td>${cdLabel}</td>
+            <td>${date}</td>
+            <td>
+                <div class="actions-cell">
+                    ${u.role !== 'admin' ? `
+                    <button class="btn btn-warning btn-sm"
+                        onclick="openRoleModal('${u.id}','${escHtml(u.username)}','${u.role}',${u.cooldown_ms})">
+                        <span>Rol</span> 🎭
+                    </button>
+                    ` : ''}
+                    <button class="btn btn-sm" style="border:1.5px solid #60a5fa;color:#60a5fa;"
+                        onclick="openRenameModal('${u.id}','${escHtml(u.username)}')">
+                        <span>Ad</span> ✏️
+                    </button>
+                    ${u.role !== 'admin' ? `
+                    <button class="btn btn-danger btn-sm"
+                        onclick="openClearPixelsModal('${u.id}','${escHtml(u.username)}')">
+                        🗑️
+                    </button>
+                    <button class="btn btn-danger btn-sm"
+                        onclick="openDeleteUserModal('${u.id}','${escHtml(u.username)}')">
+                        ⛔
+                    </button>
+                    ` : ''}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function updateStats(users) {
+    document.getElementById('statTotal').textContent  = users.length;
+    document.getElementById('statVip').textContent    = users.filter(u => u.role === 'vip').length;
+    document.getElementById('statUsers').textContent  = users.filter(u => u.role === 'user').length;
+    const totalPx = users.reduce((s, u) => s + (parseInt(u.pixel_count) || 0), 0);
+    document.getElementById('statPixels').textContent = totalPx.toLocaleString('tr-TR');
+}
+
+function filterTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = allUsers.filter(u =>
+        u.username.toLowerCase().includes(q) || u.role.toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+}
+
+// ─── YENİ ÜYE OLUŞTUR ───────────────────────────────────────────────────────
+async function createUser() {
+    const username = document.getElementById('newUsername').value.trim();
+    const role     = document.getElementById('newRole').value;
+
+    if (!username) { showToast('Kullanıcı adı girin.', 'error'); return; }
+
+    const { data, error } = await db.rpc('admin_create_user', {
+        p_admin_token: adminToken,
+        p_username:    username,
+        p_role:        role
+    });
+
+    if (error || !data) {
+        showToast('Üye oluşturulamadı: ' + (error?.message || ''), 'error');
+        return;
+    }
+
+    document.getElementById('newTokenDisplay').textContent = data;
+    document.getElementById('tokenResult').classList.add('show');
+    document.getElementById('newUsername').value = '';
+    showToast('✅ Üye oluşturuldu!', 'success');
+    loadUsers();
+}
+
+function copyToken() {
+    const token = document.getElementById('newTokenDisplay').textContent;
+    navigator.clipboard.writeText(token)
+        .then(() => showToast('📋 Token kopyalandı!', 'info'))
+        .catch(() => {
+            // Fallback
+            const el = document.createElement('textarea');
+            el.value = token;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast('📋 Token kopyalandı!', 'info');
+        });
+}
+
+// ─── ROL DEĞİŞTİR ───────────────────────────────────────────────────────────
+function openRoleModal(id, username, role, cooldownMs) {
+    activeUserId = id;
+    document.getElementById('roleSubtitle').textContent = `"${username}" için yeni rol seçin.`;
+    document.getElementById('roleSelect').value   = role;
+    document.getElementById('cooldownInput').value = cooldownMs;
+    openModal('roleModal');
+}
+
+async function confirmRoleChange() {
+    const newRole   = document.getElementById('roleSelect').value;
+    const newCd     = parseInt(document.getElementById('cooldownInput').value) || 0;
+
+    const { data, error } = await db.rpc('admin_update_role', {
+        p_admin_token: adminToken,
+        p_user_id:     activeUserId,
+        p_new_role:    newRole,
+        p_cooldown_ms: newCd
+    });
+
+    if (error || !data) {
+        showToast('Rol güncellenemedi.', 'error'); return;
+    }
+    showToast('✅ Rol güncellendi!', 'success');
+    closeModal('roleModal');
+    loadUsers();
+}
+
+// ─── KULLANICI ADI DEĞİŞTİR ─────────────────────────────────────────────────
+function openRenameModal(id, username) {
+    activeUserId = id;
+    document.getElementById('renameSubtitle').textContent = `"${username}" için yeni ad girin.`;
+    document.getElementById('renameInput').value = username;
+    openModal('renameModal');
+}
+
+async function confirmRename() {
+    const newName = document.getElementById('renameInput').value.trim();
+    if (!newName) { showToast('Ad boş olamaz.', 'error'); return; }
+
+    const { data, error } = await db.rpc('admin_update_username', {
+        p_admin_token:  adminToken,
+        p_user_id:      activeUserId,
+        p_new_username: newName
+    });
+
+    if (error || !data) {
+        showToast('Ad güncellenemedi.', 'error'); return;
+    }
+    showToast('✅ Kullanıcı adı güncellendi!', 'success');
+    closeModal('renameModal');
+    loadUsers();
+}
+
+// ─── PİKSEL SİL ─────────────────────────────────────────────────────────────
+function openClearPixelsModal(id, username) {
+    activeUserId = id;
+    document.getElementById('clearPixelsSubtitle').textContent =
+        `"${username}" adlı üyenin tüm pikselleri tuvalde silinecek. Emin misiniz?`;
+    openModal('clearPixelsModal');
+}
+
+async function confirmClearPixels() {
+    const { data, error } = await db.rpc('admin_clear_pixels', {
+        p_admin_token: adminToken,
+        p_user_id:     activeUserId
+    });
+
+    if (error) {
+        showToast('Piksel silinemedi.', 'error'); return;
+    }
+    showToast(`✅ ${data} piksel silindi.`, 'success');
+    closeModal('clearPixelsModal');
+    loadUsers();
+}
+
+// ─── ÜYE SİL ────────────────────────────────────────────────────────────────
+function openDeleteUserModal(id, username) {
+    activeUserId = id;
+    document.getElementById('deleteUserSubtitle').innerHTML =
+        `"<strong>${escHtml(username)}</strong>" adlı üye ve tüm pikselleri kalıcı olarak silinecek. Emin misiniz?`;
+    openModal('deleteUserModal');
+}
+
+async function confirmDeleteUser() {
+    const { data, error } = await db.rpc('admin_delete_user', {
+        p_admin_token: adminToken,
+        p_user_id:     activeUserId
+    });
+
+    if (error || !data) {
+        showToast('Üye silinemedi.', 'error'); return;
+    }
+    showToast('✅ Üye silindi.', 'success');
+    closeModal('deleteUserModal');
+    loadUsers();
+}
+
+// ─── YARDIMCILAR ────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Backdrop tıklamayla kapat
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+    el.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('open');
+    });
+});
+
+function showToast(msg, type = 'info', duration = 3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => {
+        t.style.opacity    = '0';
+        t.style.transition = 'opacity 0.3s';
+        setTimeout(() => t.remove(), 320);
+    }, duration);
+}
+
+function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Rol seçimi değişince cooldown'u otomatik ayarla
+document.getElementById('roleSelect')?.addEventListener('change', function() {
+    document.getElementById('cooldownInput').value = this.value === 'vip' ? 0 : 1000;
+});
+</script>
+</body>
+</html>
