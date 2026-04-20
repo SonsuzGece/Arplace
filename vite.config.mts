@@ -14,7 +14,7 @@ function randomFileName() {
 }
 
 export default defineConfig({
-	base: "/",
+	base: "/Arplace/",
 	appType: "mpa",
 	server: {
 		open: true,
