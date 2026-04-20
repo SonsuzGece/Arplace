@@ -1,15 +1,22 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = 'https://gbtxljdoptlpqrkekyxj.supabase.co'
+const supabaseKey = 'sb_publishable_lv0355_cUKawvXXmaSiEBA_CJuV-Ekm'
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
 /**
  * @constant {string} DEFAULT_SERVER
  */
-export const DEFAULT_SERVER = "wss://server.rplace.live"
+export const DEFAULT_SERVER = ""
 /**
  * @constant {string} DEFAULT_BOARD
  */
-export const DEFAULT_BOARD = "https://raw.githubusercontent.com/rplacelive/canvas1/main/place"
+export const DEFAULT_BOARD = ""
 /**
  * @constant {string} DEFAULT_BOARD_FALLBACK
  */
-export const DEFAULT_BOARD_FALLBACK = "https://server.rplace.live/public/place"
+export const DEFAULT_BOARD_FALLBACK = ""
 
 /**
  * @constant {string} DEFAULT_AUTH
