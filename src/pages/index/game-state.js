@@ -32,7 +32,8 @@ export let currentUserToken = null;
 export let currentUserProfile = null;
 export let isVisitor = true;
 export let freeDrawMode = false;
-let activeColor = 0; // Serbest Mod için seçili renk hafızası
+let activeColor = 0; 
+let gameInitialized = false; // Oyunun 2 kere yüklenmesini engeller
 
 // --- BİLDİRİM (TOAST) FONKSİYONU ---
 export function showToast(msg, type = "success") {
@@ -70,17 +71,53 @@ function setupUI() {
     const freeDrawToggle = document.getElementById('freeDrawToggle');
     const placeBtn = document.getElementById('place');
 
-    // 1. ZİYARETÇİ GİRİŞİ
-    visitorBtn.onclick = () => {
-        authOverlay.style.display = 'none';
-        isVisitor = true;
-        placeBtn.style.display = 'none';
-        freeDrawToggle.style.display = 'none';
-        showToast("Ziyaretçi olarak giriş yapıldı. Sadece izleyebilirsiniz.", "success");
-        initGame();
+    // 1. OTOMATİK GİRİŞ KONTROLÜ (Site ilk açıldığında çalışır)
+    const savedToken = localStorage.getItem('arplace_token');
+    if (savedToken) {
+        supabase.from('profiles').select('*').eq('access_token', savedToken).single().then(({ data, error }) => {
+            if (data && !error) {
+                showToast(`Tekrar hoş geldin, ${data.username}!`, "success");
+                initGameWithProfile(data, savedToken);
+            } else {
+                localStorage.removeItem('arplace_token');
+                initGameAsVisitor(); // Token geçersizse ziyaretçi başlat
+            }
+        });
+    } else {
+        // Önceden giriş yapılmamışsa sessizce ziyaretçi olarak başlat
+        initGameAsVisitor();
+    }
+
+    // 2. PROFİL İKONUNA TIKLANDIĞINDA
+    profileBtn.onclick = async () => {
+        if (isVisitor) {
+            // Ziyaretçi ise Auth (Token girme) ekranını aç
+            authOverlay.style.display = 'flex';
+        } else {
+            // Zaten giriş yapmışsa Profil / Admin ekranını aç
+            document.getElementById('profUsername').innerText = currentUserProfile.username;
+            document.getElementById('profRole').innerText = currentUserProfile.role.toUpperCase();
+            document.getElementById('profDate').innerText = new Date(currentUserProfile.created_at).toLocaleDateString('tr-TR');
+            
+            const { count } = await supabase.from('pixels').select('*', { count: 'exact', head: true }).eq('user_id', currentUserProfile.id);
+            document.getElementById('profPixels').innerText = count || 0;
+
+            if (currentUserProfile.role === 'admin') {
+                openAdminBtn.style.display = 'block';
+            } else {
+                openAdminBtn.style.display = 'none';
+            }
+            
+            profileOverlay.style.display = 'flex';
+        }
     };
 
-    // 2. TOKEN İLE GİRİŞ
+    // 3. GİRİŞ EKRANINDAKİ BUTONLAR
+    visitorBtn.onclick = () => {
+        authOverlay.style.display = 'none';
+        showToast("İzleyici moduna dönüldü.", "success");
+    };
+
     authBtn.onclick = async () => {
         const token = tokenInput.value.trim();
         if (!token) return showToast("Lütfen geçerli bir kod girin!", "error");
@@ -94,44 +131,16 @@ function setupUI() {
         } else {
             localStorage.setItem('arplace_token', token);
             authOverlay.style.display = 'none';
-            showToast(`Hoş geldin, ${profile.username}!`, "success");
+            authBtn.innerText = "Giriş Yap";
+            showToast(`Giriş başarılı! İyi çizimler ${profile.username}.`, "success");
             initGameWithProfile(profile, token);
         }
     };
 
-    // OTOMATİK GİRİŞ KONTROLÜ
-    const savedToken = localStorage.getItem('arplace_token');
-    if (savedToken) {
-        supabase.from('profiles').select('*').eq('access_token', savedToken).single().then(({ data }) => {
-            if (data) {
-                authOverlay.style.display = 'none';
-                showToast("Tekrar hoş geldin!", "success");
-                initGameWithProfile(data, savedToken);
-            } else {
-                localStorage.removeItem('arplace_token');
-            }
-        });
-    }
-
-    // 3. PROFİL MENÜSÜ İŞLEMLERİ
-    profileBtn.onclick = async () => {
-        if (isVisitor) return showToast("Ziyaretçilerin profili yoktur. Sadece izleyebilirler.", "error");
-        
-        document.getElementById('profUsername').innerText = currentUserProfile.username;
-        document.getElementById('profRole').innerText = currentUserProfile.role.toUpperCase();
-        document.getElementById('profDate').innerText = new Date(currentUserProfile.created_at).toLocaleDateString('tr-TR');
-        
-        const { count } = await supabase.from('pixels').select('*', { count: 'exact', head: true }).eq('user_id', currentUserProfile.id);
-        document.getElementById('profPixels').innerText = count || 0;
-
-        if (currentUserProfile.role === 'admin') openAdminBtn.style.display = 'block';
-        profileOverlay.style.display = 'flex';
-    };
-
+    // 4. PROFİL VE ADMİN MENÜSÜ İŞLEMLERİ
     closeProfileBtn.onclick = () => profileOverlay.style.display = 'none';
     logoutBtn.onclick = () => { localStorage.removeItem('arplace_token'); location.reload(); };
 
-    // 4. ADMİN PANELİ İŞLEMLERİ
     openAdminBtn.onclick = () => {
         profileOverlay.style.display = 'none';
         adminOverlay.style.display = 'flex';
@@ -145,7 +154,7 @@ function setupUI() {
         if (!username) return showToast("Kullanıcı adı girilmek zorundadır!", "error");
         
         const token = 'place_' + Math.random().toString(36).substr(2, 9);
-        const cooldown = (role === 'admin' || role === 'vip') ? 0 : 1000; // Normal üyeye 1sn, VIP'e 0sn
+        const cooldown = (role === 'admin' || role === 'vip') ? 0 : 1000;
 
         const { error } = await supabase.from('profiles').insert([{ username, access_token: token, role, cooldown_ms: cooldown }]);
 
@@ -153,7 +162,7 @@ function setupUI() {
             showToast("Hata: " + error.message, "error");
         } else {
             showToast(`Üye eklendi! Token kopyalandı: ${token}`, "success");
-            navigator.clipboard.writeText(token); // Kodu anında kopyalar
+            navigator.clipboard.writeText(token); 
             document.getElementById('newUsername').value = "";
             loadAdminUsers();
         }
@@ -174,7 +183,7 @@ function setupUI() {
         }
     };
 
-    // Palette renk seçildiğinde hafızaya al (Serbest mod tak tak tak koyabilsin diye)
+    // Paletteki rengi hafızaya al
     document.getElementById("colours").addEventListener("click", (e) => {
         const children = Array.from(document.getElementById("colours").children);
         let target = e.target;
@@ -188,10 +197,9 @@ function setupUI() {
         }
     });
 
-    // Serbest Mod Açıksa ve Ekrana Tıklanırsa (Sihirli Kısım)
+    // Serbest modda tıklayınca piksel koy
     document.getElementById("viewport").addEventListener("pointerup", (e) => {
         if (freeDrawMode && !isVisitor && !onCooldown) {
-            // Oyun motorunun koordinat bulmasını 50ms bekleyip tepeden okuyoruz
             setTimeout(() => {
                 const text = document.getElementById("positionIndicator").innerText;
                 const match = text.match(/\((\d+),\s*(\d+)\)/);
@@ -238,12 +246,22 @@ window.deleteUserPixels = async (userId) => {
 };
 
 // --- OYUN BAŞLATMA MANTIĞI ---
+function initGameAsVisitor() {
+    isVisitor = true;
+    document.getElementById('place').style.display = 'none';
+    document.getElementById('freeDrawToggle').style.display = 'none';
+    initGame();
+}
+
 function initGameWithProfile(profile, token) {
     currentUserProfile = profile;
     currentUserToken = token;
     isVisitor = false;
-    COOLDOWN = profile.cooldown_ms || 1000;
+    COOLDOWN = profile.cooldown_ms !== null ? profile.cooldown_ms : 1000;
     chatName = profile.username;
+    
+    // Butonları Görünür Yap
+    document.getElementById('place').style.display = 'block';
     
     const freeDrawToggle = document.getElementById('freeDrawToggle');
     if (profile.role === 'admin' || profile.role === 'vip') {
@@ -252,13 +270,16 @@ function initGameWithProfile(profile, token) {
         freeDrawToggle.style.display = 'none';
     }
 
-    // Doğru token'ı Supabase'e tanıt (Hacker Koruması)
+    // Doğru token'ı Supabase'e güvenlik (RPC) için gönder
     supabase.rpc('set_config', { name: 'app.current_token', value: token }).then();
 
     initGame();
 }
 
 function initGame() {
+    if (gameInitialized) return; // Tuval zaten yüklüyse tekrar yükleme
+    gameInitialized = true;
+    
     setSize(WIDTH, HEIGHT);
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
@@ -271,7 +292,6 @@ function initGame() {
 }
 
 function loadPixels() {
-    // Tüm tuvali çek
     supabase.from('pixels').select('*').then(({ data }) => {
         if (data) {
             data.forEach(p => {
@@ -283,12 +303,11 @@ function loadPixels() {
         }
     }).catch(e => console.error(e));
 
-    // Canlı Güncellemeler (ve Canlı Silme/Wipe animasyonu)
     supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
         if (payload.eventType === 'DELETE') {
             const old = payload.old;
             const idx = (parseInt(old.x) % WIDTH) + (parseInt(old.y) % HEIGHT) * WIDTH;
-            if(BOARD) BOARD[idx] = 255; // Silinen pikseli anında bembeyaz yap
+            if(BOARD) BOARD[idx] = 255; 
             if(SOCKET_PIXELS) SOCKET_PIXELS[idx] = 255;
         } else {
             const p = payload.new;
@@ -305,7 +324,7 @@ function loadPixels() {
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
     connectStatus = "connected";
-    setupUI(); // Sitenin kalbini ve giriş ekranını başlat
+    setupUI(); 
 }
 
 export function sendServerMessage(name, args) {
@@ -321,11 +340,9 @@ export function sendServerMessage(name, args) {
             const x = pos % WIDTH;
             const y = Math.floor(pos / WIDTH);
             
-            // Ekrana Çiz (Anında Tepki)
             setPixelI(pos, col);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            // Supabase'e Gönder (Hacker Korumalı RPC)
             supabase.rpc('place_pixel_with_token', { 
                 p_x: x, 
                 p_y: y, 
@@ -333,15 +350,16 @@ export function sendServerMessage(name, args) {
                 p_token: currentUserToken 
             }).then(({ data, error }) => {
                 if (error || !data) {
-                    showToast("Hata: Piksel veritabanına yazılamadı!", "error");
+                    showToast("Hata: Piksel yetkiniz yok veya sunucu hatası!", "error");
                 }
             });
             
-            // Serbest Mod KAPALIYSA bekleme süresini başlat
             if (!freeDrawMode) {
                 setCooldown(Date.now() + COOLDOWN);
             }
         }
+    } else if (name === "putPixel" && isVisitor) {
+        showToast("Piksel yerleştirmek için Profil ikonundan kod girmelisiniz!", "error");
     }
 }
 
