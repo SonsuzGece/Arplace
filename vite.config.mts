@@ -65,8 +65,8 @@ export default defineConfig({
 				theme_color: "#ff4500",
 				background_color: "#ffffff",
 				display: "standalone",
-				start_url: "/",
-				scope: "/",
+				start_url: "/Arplace/",
+				scope: "/Arplace/",
 				icons: [
 					{
 						"src": "favicon.ico",
@@ -90,6 +90,5 @@ export default defineConfig({
 			: cloudflare({
 				configPath: "./wrangler.jsonc"
 			})
-
 	]
 })
