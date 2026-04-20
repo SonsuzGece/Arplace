@@ -40,6 +40,31 @@
 	<script>window.addEventListener("undefineglobals",(()=>{delete WebSocket,delete Worker,Object.defineProperty(window,"eval",{value:function(){throw new Error},writable:!1,configurable:!1})}));</script>
 	<script type="module" src="src/pages/index/index.js"></script>
 	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><script src="https://blobk.at/science.js" type="module"></script>
+	<style>
+		/* Arka Planı Karanlık Yap ve Tuvali Ortaya Çıkar */
+		body, #maincontent, #bgWrapper {
+			background-color: #1e1e24 !important; /* Orijinal sitenin koyu gri tonu */
+			color: white;
+		}
+		
+		/* Tuvalin arkasına hafif bir gölge ekle ki havada dursun */
+		#canvparent1, #viewportCanvas {
+			box-shadow: 0px 0px 20px rgba(0,0,0,0.8);
+		}
+
+		/* Alttaki 'Bir Piksel Yerleştir' Butonunu Şıklaştır */
+		#place {
+			background-color: #ffffff !important;
+			color: #000000 !important;
+			border-radius: 50px !important; /* Hap şekli verir */
+			padding: 12px 24px !important;
+			font-weight: bold !important;
+			border: none !important;
+			box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+		}
+	</style>
 </head>
 	<body>
 		<div id="loadingScreen">
