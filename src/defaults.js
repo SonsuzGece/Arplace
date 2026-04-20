@@ -199,8 +199,8 @@ export const LANG_INFOS = new Map([
  * @constant {Map<string, ThemeInfo>} DEFAULT_THEMES
  */
 export const DEFAULT_THEMES = new Map([
-	["r/place 2022", { id: "r/place 2022", css: "/css/rplace-2022.css", cssVersion: "25", pixelselect: "/svg/pixel-select-2022.svg" }],
-	["r/place 2023", { id: "r/place 2023", css: "/css/rplace-2023.css", cssVersion: "25", pixelselect: "/svg/pixel-select-2023.svg" }]
+	["r/place 2022", { id: "r/place 2022", css: "css/rplace-2022.css", cssVersion: "25", pixelselect: "svg/pixel-select-2022.svg" }],
+	["r/place 2023", { id: "r/place 2023", css: "css/rplace-2023.css", cssVersion: "25", pixelselect: "svg/pixel-select-2023.svg" }]
 ])
 
 /**
@@ -228,11 +228,11 @@ export const DEFAULT_EFFECTS = new Map([
  * @constant {AdInfo[]} ADS
  */
 export const ADS = [
-	/*{ url: "https://youtu.be/R3UBtMloTdI", banners: { en: "/images/august21-ad.png" } },
-	{ url: "https://t.me/rplacelive", banners: { en: "/images/telegram-ad.png" } },
-	{ url: "https://discord.gg/4XnZ9WGux2", banners: { en: "/images/discord-ad.png" } },
-	{ url: "https://arbitrum.life", banners: { en: "/images/arbitrum.png" } }*/
-	{ url: "https://texel.pages.dev", banners: { en: "/images/texel.png" } }
+	/*{ url: "https://youtu.be/R3UBtMloTdI", banners: { en: "images/august21-ad.png" } },
+	{ url: "https://t.me/rplacelive", banners: { en: "images/telegram-ad.png" } },
+	{ url: "https://discord.gg/4XnZ9WGux2", banners: { en: "images/discord-ad.png" } },
+	{ url: "https://arbitrum.life", banners: { en: "images/arbitrum.png" } }*/
+	{ url: "https://texel.pages.dev", banners: { en: "images/texel.png" } }
 ]
 
 /**
