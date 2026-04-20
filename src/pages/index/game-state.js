@@ -1,5 +1,13 @@
 "use strict";
-import { DEFAULT_COOLDOWN, DEFAULT_HEIGHT, DEFAULT_PALETTE, DEFAULT_PALETTE_USABLE_REGION, DEFAULT_WIDTH, PLACEMENT_MODE, supabase } from "../../defaults.js";
+import {
+    DEFAULT_COOLDOWN,
+    DEFAULT_HEIGHT,
+    DEFAULT_PALETTE,
+    DEFAULT_PALETTE_USABLE_REGION,
+    DEFAULT_WIDTH,
+    PLACEMENT_MODE,
+    supabase
+} from "../../defaults.js";
 
 export let BOARD = null;
 export let CHANGES = null;
@@ -7,391 +15,264 @@ export let RAW_BOARD = null;
 export let SOCKET_PIXELS = null;
 export let PALETTE_USABLE_REGION = DEFAULT_PALETTE_USABLE_REGION;
 export let PALETTE = DEFAULT_PALETTE;
-export let WIDTH = DEFAULT_WIDTH;
+export let WIDTH  = DEFAULT_WIDTH;
 export let HEIGHT = DEFAULT_HEIGHT;
 export let COOLDOWN = 0;
 
-export const intIdNames = new Map();
-export let intIdPositions = new Map();
-export let account = null;
-export let intId = 12345;
-export let chatName = "Oyuncu";
-export let connectStatus = "initial";
-export let canvasLocked = false;
-export let placementMode = PLACEMENT_MODE.selectPixel;
-export const spectators = new Set();
-export let spectatingIntId = null;
-export let cooldownEndDate = null;
-export let onCooldown = false;
+export const intIdNames     = new Map();
+export let   intIdPositions = new Map();
+export let   account        = null;
+export let   intId          = 12345;
+export let   chatName       = "Oyuncu";
+export let   connectStatus  = "initial";
+export let   canvasLocked   = false;
+export let   placementMode  = PLACEMENT_MODE.selectPixel;
+export const spectators     = new Set();
+export let   spectatingIntId = null;
+export let   cooldownEndDate = null;
+export let   onCooldown      = false;
 
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 
-// --- YENİ SİSTEM DEĞİŞKENLERİ ---
-export let currentUserToken = null;
-export let currentUserProfile = null;
-export let isVisitor = true;
-export let freeDrawMode = false;
-let activeColor = 0; 
-let gameInitialized = false; // Oyunun 2 kere yüklenmesini engeller
-
-// --- BİLDİRİM (TOAST) FONKSİYONU ---
-export function showToast(msg, type = "success") {
-    const container = document.getElementById("toastContainer");
-    if (!container) return;
-    const toast = document.createElement("div");
-    toast.className = `toast toast-${type}`;
-    toast.innerText = msg;
-    container.appendChild(toast);
-    
-    setTimeout(() => toast.classList.add("show"), 10);
-    setTimeout(() => {
-        toast.classList.remove("show");
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+// ─── Supabase istemcisini al (index.html'deki veya defaults.js'deki) ──────────
+function getDb() {
+    return window.arplaceSession?.db || supabase;
 }
 
-// --- ARAYÜZ VE AUTH AYARLARI ---
-function setupUI() {
-    const authOverlay = document.getElementById('authOverlay');
-    const authBtn = document.getElementById('authBtn');
-    const tokenInput = document.getElementById('authTokenInput');
-    const visitorBtn = document.getElementById('visitorBtn');
-
-    const profileBtn = document.getElementById('profileBtn');
-    const profileOverlay = document.getElementById('profileOverlay');
-    const closeProfileBtn = document.getElementById('closeProfileBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    
-    const openAdminBtn = document.getElementById('openAdminBtn');
-    const adminOverlay = document.getElementById('adminOverlay');
-    const closeAdminBtn = document.getElementById('closeAdminBtn');
-    const createUserBtn = document.getElementById('createUserBtn');
-
-    const freeDrawToggle = document.getElementById('freeDrawToggle');
-    const placeBtn = document.getElementById('place');
-
-    // 1. OTOMATİK GİRİŞ KONTROLÜ (Site ilk açıldığında çalışır)
-    const savedToken = localStorage.getItem('arplace_token');
-    if (savedToken) {
-        supabase.from('profiles').select('*').eq('access_token', savedToken).single().then(({ data, error }) => {
-            if (data && !error) {
-                showToast(`Tekrar hoş geldin, ${data.username}!`, "success");
-                initGameWithProfile(data, savedToken);
-            } else {
-                localStorage.removeItem('arplace_token');
-                initGameAsVisitor(); // Token geçersizse ziyaretçi başlat
-            }
-        });
-    } else {
-        // Önceden giriş yapılmamışsa sessizce ziyaretçi olarak başlat
-        initGameAsVisitor();
-    }
-
-    // 2. PROFİL İKONUNA TIKLANDIĞINDA
-    profileBtn.onclick = async () => {
-        if (isVisitor) {
-            // Ziyaretçi ise Auth (Token girme) ekranını aç
-            authOverlay.style.display = 'flex';
-        } else {
-            // Zaten giriş yapmışsa Profil / Admin ekranını aç
-            document.getElementById('profUsername').innerText = currentUserProfile.username;
-            document.getElementById('profRole').innerText = currentUserProfile.role.toUpperCase();
-            document.getElementById('profDate').innerText = new Date(currentUserProfile.created_at).toLocaleDateString('tr-TR');
-            
-            const { count } = await supabase.from('pixels').select('*', { count: 'exact', head: true }).eq('user_id', currentUserProfile.id);
-            document.getElementById('profPixels').innerText = count || 0;
-
-            if (currentUserProfile.role === 'admin') {
-                openAdminBtn.style.display = 'block';
-            } else {
-                openAdminBtn.style.display = 'none';
-            }
-            
-            profileOverlay.style.display = 'flex';
-        }
-    };
-
-    // 3. GİRİŞ EKRANINDAKİ BUTONLAR
-    visitorBtn.onclick = () => {
-        authOverlay.style.display = 'none';
-        showToast("İzleyici moduna dönüldü.", "success");
-    };
-
-    authBtn.onclick = async () => {
-        const token = tokenInput.value.trim();
-        if (!token) return showToast("Lütfen geçerli bir kod girin!", "error");
-
-        authBtn.innerText = "Doğrulanıyor...";
-        const { data: profile, error } = await supabase.from('profiles').select('*').eq('access_token', token).single();
-
-        if (error || !profile) {
-            showToast("Geçersiz veya hatalı erişim kodu!", "error");
-            authBtn.innerText = "Giriş Yap";
-        } else {
-            localStorage.setItem('arplace_token', token);
-            authOverlay.style.display = 'none';
-            authBtn.innerText = "Giriş Yap";
-            showToast(`Giriş başarılı! İyi çizimler ${profile.username}.`, "success");
-            initGameWithProfile(profile, token);
-        }
-    };
-
-    // 4. PROFİL VE ADMİN MENÜSÜ İŞLEMLERİ
-    closeProfileBtn.onclick = () => profileOverlay.style.display = 'none';
-    logoutBtn.onclick = () => { localStorage.removeItem('arplace_token'); location.reload(); };
-
-    openAdminBtn.onclick = () => {
-        profileOverlay.style.display = 'none';
-        adminOverlay.style.display = 'flex';
-        loadAdminUsers();
-    };
-    closeAdminBtn.onclick = () => adminOverlay.style.display = 'none';
-
-    createUserBtn.onclick = async () => {
-        const username = document.getElementById('newUsername').value.trim();
-        const role = document.getElementById('newUserRole').value;
-        if (!username) return showToast("Kullanıcı adı girilmek zorundadır!", "error");
-        
-        const token = 'place_' + Math.random().toString(36).substr(2, 9);
-        const cooldown = (role === 'admin' || role === 'vip') ? 0 : 1000;
-
-        const { error } = await supabase.from('profiles').insert([{ username, access_token: token, role, cooldown_ms: cooldown }]);
-
-        if (error) {
-            showToast("Hata: " + error.message, "error");
-        } else {
-            showToast(`Üye eklendi! Token kopyalandı: ${token}`, "success");
-            navigator.clipboard.writeText(token); 
-            document.getElementById('newUsername').value = "";
-            loadAdminUsers();
-        }
-    };
-
-    // 5. SERBEST MOD (HIZLI ÇİZİM) AÇ/KAPAT
-    freeDrawToggle.onclick = () => {
-        if (currentUserProfile?.role !== 'admin' && currentUserProfile?.role !== 'vip') {
-            return showToast("Bu özellik sadece VIP ve Adminler içindir!", "error");
-        }
-        freeDrawMode = !freeDrawMode;
-        if (freeDrawMode) {
-            freeDrawToggle.classList.add('active');
-            showToast("Serbest Mod AÇIK. Renk seçip ekrana tıklayın!", "success");
-        } else {
-            freeDrawToggle.classList.remove('active');
-            showToast("Serbest Mod KAPALI.", "error");
-        }
-    };
-
-    // Paletteki rengi hafızaya al
-    document.getElementById("colours").addEventListener("click", (e) => {
-        const children = Array.from(document.getElementById("colours").children);
-        let target = e.target;
-        while(target && target.id !== "colours") {
-            const index = children.indexOf(target);
-            if (index !== -1) { 
-                activeColor = index; 
-                break; 
-            }
-            target = target.parentNode;
-        }
-    });
-
-    // Serbest modda tıklayınca piksel koy
-    document.getElementById("viewport").addEventListener("pointerup", (e) => {
-        if (freeDrawMode && !isVisitor && !onCooldown) {
-            setTimeout(() => {
-                const text = document.getElementById("positionIndicator").innerText;
-                const match = text.match(/\((\d+),\s*(\d+)\)/);
-                if (match) {
-                    const x = parseInt(match[1]);
-                    const y = parseInt(match[2]);
-                    const pos = x + (y * WIDTH);
-                    sendServerMessage("putPixel", { position: pos, colour: activeColor });
-                }
-            }, 50);
-        }
-    });
-}
-
-// --- ADMİN PANELİ LİSTELEME VE SİLME ---
-async function loadAdminUsers() {
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    const list = document.getElementById('adminUserList');
-    list.innerHTML = '';
-    if (data) {
-        data.forEach(u => {
-            const div = document.createElement('div');
-            div.style.cssText = "background: #1e1e24; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #444;";
-            div.innerHTML = `
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                    <b style="color: #ff4500;">${u.username} (${u.role.toUpperCase()})</b>
-                    <span style="color:#aaa; font-size:12px;">${new Date(u.created_at).toLocaleDateString('tr-TR')}</span>
-                </div>
-                <div style="color:#00ff00; font-family:monospace; margin-bottom:10px; font-size:14px; background:#111; padding:4px; border-radius:4px;">${u.access_token}</div>
-                <div style="display:flex; gap:5px;">
-                    <button style="background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:50px; cursor:pointer; font-weight:bold;" onclick="deleteUserPixels('${u.id}')">Tüm Piksellerini Sil</button>
-                </div>
-            `;
-            list.appendChild(div);
-        });
-    }
-}
-
-window.deleteUserPixels = async (userId) => {
-    if (!confirm("DİKKAT: Bu kullanıcının tuvaldeki TÜM PİKSELLERİ sonsuza dek silinecek. Emin misin?")) return;
-    const { error } = await supabase.from('pixels').delete().eq('user_id', userId);
-    if (error) showToast("Silme hatası: " + error.message, "error");
-    else showToast("Kullanıcının tüm pikselleri haritadan kazındı!", "success");
-};
-
-// --- OYUN BAŞLATMA MANTIĞI ---
-function initGameAsVisitor() {
-    isVisitor = true;
-    document.getElementById('place').style.display = 'none';
-    document.getElementById('freeDrawToggle').style.display = 'none';
-    initGame();
-}
-
-function initGameWithProfile(profile, token) {
-    currentUserProfile = profile;
-    currentUserToken = token;
-    isVisitor = false;
-    COOLDOWN = profile.cooldown_ms !== null ? profile.cooldown_ms : 1000;
-    chatName = profile.username;
-    
-    // Butonları Görünür Yap
-    document.getElementById('place').style.display = 'block';
-    
-    const freeDrawToggle = document.getElementById('freeDrawToggle');
-    if (profile.role === 'admin' || profile.role === 'vip') {
-        freeDrawToggle.style.display = 'flex';
-    } else {
-        freeDrawToggle.style.display = 'none';
-    }
-
-    // Doğru token'ı Supabase'e güvenlik (RPC) için gönder
-    supabase.rpc('set_config', { name: 'app.current_token', value: token }).then();
-
-    initGame();
-}
-
-function initGame() {
-    if (gameInitialized) return; // Tuval zaten yüklüyse tekrar yükleme
-    gameInitialized = true;
-    
-    setSize(WIDTH, HEIGHT);
-    setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
-        window.dispatchEvent(new CustomEvent("palette", { detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end }, bubbles: true, composed: true }));
-        window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
-        window.dispatchEvent(new CustomEvent("online", { detail: { count: 1 }, bubbles: true, composed: true }));
-        window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
-    }, 500);
-    loadPixels();
-}
-
-function loadPixels() {
-    supabase.from('pixels').select('*').then(({ data }) => {
-        if (data) {
-            data.forEach(p => {
-                const idx = (parseInt(p.x) % WIDTH) + (parseInt(p.y) % HEIGHT) * WIDTH;
-                if(BOARD) BOARD[idx] = parseInt(p.color);
-                if(SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
-            });
-            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-        }
-    }).catch(e => console.error(e));
-
-    supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
-        if (payload.eventType === 'DELETE') {
-            const old = payload.old;
-            const idx = (parseInt(old.x) % WIDTH) + (parseInt(old.y) % HEIGHT) * WIDTH;
-            if(BOARD) BOARD[idx] = 255; 
-            if(SOCKET_PIXELS) SOCKET_PIXELS[idx] = 255;
-        } else {
-            const p = payload.new;
-            if (p) {
-                const idx = (parseInt(p.x) % WIDTH) + (parseInt(p.y) % HEIGHT) * WIDTH;
-                if(BOARD) BOARD[idx] = parseInt(p.color);
-                if(SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
-            }
-        }
-        window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-    }).subscribe();
-}
-
+// ─── Bağlantı ─────────────────────────────────────────────────────────────────
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
     connectStatus = "connected";
-    setupUI(); 
+
+    setSize(WIDTH, HEIGHT);
+
+    // Yükleme ekranını geç
+    setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("intid",      { detail: { intId }, bubbles: true, composed: true }));
+        window.dispatchEvent(new CustomEvent("palette",    { detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end }, bubbles: true, composed: true }));
+        window.dispatchEvent(new CustomEvent("boardloaded",{ detail: {}, bubbles: true, composed: true }));
+        window.dispatchEvent(new CustomEvent("online",     { detail: { count: 1 }, bubbles: true, composed: true }));
+        window.dispatchEvent(new CustomEvent("cooldown",   { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
+    }, 500);
+
+    // Tüm pikselleri Supabase'den yükle
+    getDb()
+        .from('pixels')
+        .select('x, y, color')
+        .then(({ data, error }) => {
+            if (error) { console.error('[Arplace] Piksel yükleme hatası:', error); return; }
+            if (data) {
+                data.forEach(p => {
+                    const x = parseInt(p.x);
+                    const y = parseInt(p.y);
+                    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+                    const idx = x + y * WIDTH;
+                    if (BOARD)        BOARD[idx]        = parseInt(p.color);
+                    if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
+                });
+                window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+            }
+        })
+        .catch(e => console.error('[Arplace] Piksel yükleme exception:', e));
+
+    // Canlı güncellemeler (Realtime)
+    getDb()
+        .channel('arplace-pixels')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'pixels' },
+            payload => {
+                const p = payload.new;
+                if (!p) return;
+                const x = parseInt(p.x);
+                const y = parseInt(p.y);
+                if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+                const idx = x + y * WIDTH;
+                if (BOARD)        BOARD[idx]        = parseInt(p.color);
+                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
+                window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+            }
+        )
+        .subscribe();
+
+    // Serbest mod kurulumu (palette renk tıklamalarını dinle)
+    _setupFreeMode();
+
+    // Token yoksa "Piksel Yerleştir" butonunu kilitle
+    _setupPlaceButtonGuard();
 }
 
+// ─── Piksel Gönderme ───────────────────────────────────────────────────────────
 export function sendServerMessage(name, args) {
-    if (name === "putPixel" && !isVisitor) {
-        let pos = args?.position ?? (Array.isArray(args) ? args[0] : null);
-        let col = args?.colour ?? (Array.isArray(args) ? args[1] : null);
-        
-        if (pos !== null && col !== null) {
-            if (onCooldown && !freeDrawMode) {
-                return showToast("Bekleme süreniz henüz bitmedi!", "error");
-            }
+    if (name !== "putPixel") return;
 
-            const x = pos % WIDTH;
-            const y = Math.floor(pos / WIDTH);
-            
-            setPixelI(pos, col);
-            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-
-            supabase.rpc('place_pixel_with_token', { 
-                p_x: x, 
-                p_y: y, 
-                p_color: col, 
-                p_token: currentUserToken 
-            }).then(({ data, error }) => {
-                if (error || !data) {
-                    showToast("Hata: Piksel yetkiniz yok veya sunucu hatası!", "error");
-                }
-            });
-            
-            if (!freeDrawMode) {
-                setCooldown(Date.now() + COOLDOWN);
-            }
-        }
-    } else if (name === "putPixel" && isVisitor) {
-        showToast("Piksel yerleştirmek için Profil ikonundan kod girmelisiniz!", "error");
+    // Token kontrolü
+    const session = window.arplaceSession;
+    if (!session?.token) {
+        // Profil panelini aç
+        document.getElementById('profilePanel')?.classList.add('visible');
+        document.getElementById('profileOverlay')?.classList.add('visible');
+        _showToast('🔒 Piksel koymak için giriş yapmalısınız!', 'error');
+        return;
     }
+
+    let pos = args?.position ?? (Array.isArray(args) ? args[0] : null);
+    let col = args?.colour   ?? (Array.isArray(args) ? args[1] : null);
+    if (pos === null || col === null) return;
+
+    const x = pos % WIDTH;
+    const y = Math.floor(pos / WIDTH);
+
+    // Ekrana anında çiz (optimistic UI)
+    setPixelI(pos, col);
+    window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+
+    // Cooldown hesapla (user: 1000ms, vip/admin: 0ms)
+    const cdMs = _getCooldownMs();
+    const endDate = new Date(Date.now() + cdMs);
+    setCooldown(endDate);
+
+    // Veritabanına güvenli RPC ile yaz (token doğrulamalı)
+    getDb()
+        .rpc('place_pixel_with_token', {
+            p_x:     x,
+            p_y:     y,
+            p_color: col,
+            p_token: session.token
+        })
+        .then(({ data, error }) => {
+            if (error) {
+                console.error('[Arplace] place_pixel_with_token hatası:', error);
+                _showToast('❌ Piksel gönderilemedi.', 'error');
+                return;
+            }
+            if (data === false) {
+                _showToast('⛔ Geçersiz token. Lütfen tekrar giriş yapın.', 'error');
+                // Oturumu temizle
+                localStorage.removeItem('arplace_session');
+                if (window.arplaceSession) {
+                    window.arplaceSession.token    = null;
+                    window.arplaceSession.username = null;
+                    window.arplaceSession.role     = null;
+                }
+                document.getElementById('profilebtn')?.classList.remove('logged-in');
+            }
+        })
+        .catch(e => console.error('[Arplace] RPC exception:', e));
 }
 
 export async function makeServerRequest() { return null; }
 
+// ─── Boyut Ayarla ─────────────────────────────────────────────────────────────
 export function setSize(width, height) {
-    WIDTH = width; HEIGHT = height;
-    BOARD = new Uint8Array(width * height).fill(255); 
+    WIDTH  = width;
+    HEIGHT = height;
+    BOARD         = new Uint8Array(width * height).fill(255);
     SOCKET_PIXELS = new Uint8Array(width * height).fill(255);
-    RAW_BOARD = new Uint8Array(width * height).fill(255);
-    CHANGES = new Uint8Array(width * height).fill(255);
+    RAW_BOARD     = new Uint8Array(width * height).fill(255);
+    CHANGES       = new Uint8Array(width * height).fill(255);
     window.dispatchEvent(new CustomEvent("size", { detail: { width, height }, bubbles: true, composed: true }));
 }
 
+// ─── Cooldown ─────────────────────────────────────────────────────────────────
 export function setCooldown(endDate) {
     cooldownEndDate = endDate;
-    onCooldown = endDate > Date.now(); 
-    window.dispatchEvent(new CustomEvent("cooldownstart", { detail: { endDate, onCooldown }, bubbles: true, composed: true }));
-    
-    if (onCooldown) {
+    const cdMs = _getCooldownMs();
+    onCooldown = (cdMs > 0);
+    window.dispatchEvent(new CustomEvent("cooldownstart", {
+        detail: { endDate, onCooldown },
+        bubbles: true,
+        composed: true
+    }));
+    if (cdMs > 0) {
         setTimeout(() => {
             onCooldown = false;
-            window.dispatchEvent(new CustomEvent("cooldownend", { detail: { endDate, onCooldown: false }, bubbles: true, composed: true }));
-        }, endDate - Date.now());
+            window.dispatchEvent(new CustomEvent("cooldownend", { bubbles: true, composed: true }));
+        }, cdMs);
     }
 }
 
+// ─── Piksel Çizme ─────────────────────────────────────────────────────────────
 export function setPixel(x, y, colour) {
-    setPixelI(x % WIDTH + (y % HEIGHT) * WIDTH, colour);
+    const clampedX = ((x % WIDTH)  + WIDTH)  % WIDTH;
+    const clampedY = ((y % HEIGHT) + HEIGHT) % HEIGHT;
+    setPixelI(clampedX + clampedY * WIDTH, colour);
 }
 
 export function setPixelI(index, colour) {
-    if (BOARD) BOARD[index] = colour;
+    if (BOARD)        BOARD[index]        = colour;
     if (SOCKET_PIXELS) SOCKET_PIXELS[index] = colour;
+}
+
+// ─── Yardımcı: Cooldown süresi ────────────────────────────────────────────────
+function _getCooldownMs() {
+    const session = window.arplaceSession;
+    if (!session) return 1000;
+    const role = session.role;
+    if (role === 'admin' || role === 'vip') return 0;
+    return session.cooldownMs ?? 1000;
+}
+
+// ─── Yardımcı: Place butonunu token olmadan kilitle ───────────────────────────
+function _setupPlaceButtonGuard() {
+    // Her pok (onay) butonuna basıldığında token kontrolü
+    document.addEventListener('click', function(e) {
+        if (e.target.id !== 'pok' && !e.target.closest('#pok')) return;
+        const session = window.arplaceSession;
+        if (!session?.token) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            document.getElementById('profilePanel')?.classList.add('visible');
+            document.getElementById('profileOverlay')?.classList.add('visible');
+            _showToast('🔒 Piksel koymak için giriş yapmalısınız!', 'error');
+        }
+    }, true);
+}
+
+// ─── Yardımcı: Serbest mod (VIP/Admin için onay olmadan direkt koy) ───────────
+function _setupFreeMode() {
+    // Renk seçimi event'i gelince serbest modda otomatik onayla
+    function onColourClick(e) {
+        const session = window.arplaceSession;
+        if (!session?.freeMode) return;
+        if (!session?.token)    return;
+
+        // Biraz bekle, seçim state'e işlensin
+        setTimeout(() => {
+            const pokBtn = document.getElementById('pok');
+            // Palet açıksa ve onay butonu erişilebilirse tıkla
+            const palette = document.getElementById('palette');
+            const isOpen  = palette && !palette.style.transform?.includes('100%');
+            if (pokBtn && !pokBtn.disabled && isOpen) {
+                pokBtn.click();
+            }
+        }, 60);
+    }
+
+    // Palet renk kutularına listener ekle
+    function attachColourListeners() {
+        const coloursEl = document.getElementById('colours');
+        if (!coloursEl) {
+            setTimeout(attachColourListeners, 400);
+            return;
+        }
+        coloursEl.addEventListener('click', onColourClick);
+    }
+    attachColourListeners();
+}
+
+// ─── Yardımcı: Toast bildirimi ────────────────────────────────────────────────
+function _showToast(message, type, duration = 3000) {
+    const container = document.getElementById('notificationContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'arplace-toast ' + type;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity    = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 320);
+    }, duration);
 }
