@@ -220,9 +220,42 @@
 			height: 22px !important;
 			fill: #000000 !important;
 		}
+
+		/* --- GİRİŞ / KAYIT PANELİ TASARIMI --- */
+		#authOverlay {
+			position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+			background: rgba(0,0,0,0.9); z-index: 20000;
+			display: flex; align-items: center; justify-content: center;
+		}
+		.auth-card {
+			background: #1e1e24; padding: 30px; border-radius: 15px;
+			width: 90%; max-width: 350px; text-align: center;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #444;
+		}
+		.auth-card h2 { margin-bottom: 20px; color: #ff4500; }
+		.auth-card input {
+			width: 100%; padding: 12px; margin-bottom: 10px;
+			background: #2b2b36; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box;
+		}
+		.auth-card button {
+			width: 100%; padding: 12px; background: #ff4500; border: none;
+			color: white; font-weight: bold; border-radius: 5px; cursor: pointer; box-sizing: border-box;
+		}
+		.auth-card p { margin-top: 15px; font-size: 13px; color: #aaa; cursor: pointer; }
 	</style>
 </head>
 	<body>
+		<div id="authOverlay">
+			<div class="auth-card" id="authCard">
+				<h2 id="authTitle">Hoş Geldin</h2>
+				<input type="text" id="authUsername" placeholder="Kullanıcı Adı (Sadece Kayıt)">
+				<input type="email" id="authEmail" placeholder="E-posta">
+				<input type="password" id="authPassword" placeholder="Şifre">
+				<button id="authBtn">Giriş Yap</button>
+				<p id="authSwitch">Hesabın yok mu? Kayıt Ol</p>
+			</div>
+		</div>
+
 		<div id="loadingScreen">
 			<canvas id="waitingGameCanvas"></canvas>
 			<img src="images/rplace-loader.gif" alt="rplace.live" class="loading-logo"/>
@@ -737,7 +770,7 @@
 				<div class="buttons">
 					<button type="button" id="pcancel" class="pcancel" title="Cancel">
 						<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" data-name="icons final" viewBox="0 0 20 20">
-							<path d="M18.442 2.442l-.884-.884L10 9.116 2.442 1.558l-.884.884L9.116 10l-7.558 7.558.884.884L10 10.884l7.558 7.558.884-.884L10.884 10l7.558-7.558z"></path>
+							<path d="M18.442 2.442l-.884-.884L10 9.116 2.442 1.558l-.884.884L9.116 10l-7.558 7.558.884.884L9.116 10l-7.558 7.558.884.884L10 10.884l7.558 7.558.884-.884L10.884 10l7.558-7.558z"></path>
 						</svg>
 					</button>
 					<button type="button" id="pok" class="pok" title="Confirm place pixel">
