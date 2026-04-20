@@ -41,28 +41,116 @@
 	<script type="module" src="src/pages/index/index.js"></script>
 	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><script src="https://blobk.at/science.js" type="module"></script>
 	<style>
-		/* Arka Planı Karanlık Yap ve Tuvali Ortaya Çıkar */
+		/* Arka Planı Biraz Daha Açık Koyu Gri Yap */
 		body, #maincontent, #bgWrapper {
-			background-color: #1e1e24 !important; /* Orijinal sitenin koyu gri tonu */
+			background-color: #2b2b36 !important; 
 			color: white;
 		}
 		
-		/* Tuvalin arkasına hafif bir gölge ekle ki havada dursun */
-		#canvparent1, #viewportCanvas {
-			box-shadow: 0px 0px 20px rgba(0,0,0,0.8);
+		/* KRİTİK HATA ÇÖZÜMÜ: Arayüz butonları tuvalin altında kalmasın diye Z-index fırlatıyoruz */
+		.layout, #place, #positionIndicator, #chatbtn, #closebtn, #helpbtn {
+			z-index: 9999 !important;
 		}
 
-		/* Alttaki 'Bir Piksel Yerleştir' Butonunu Şıklaştır */
-		#place {
-			background-color: #ffffff !important;
-			color: #000000 !important;
-			border-radius: 50px !important; /* Hap şekli verir */
-			padding: 12px 24px !important;
+		/* 3 Nokta Menü Butonu (Sol Üst, Tam Yuvarlak) */
+		#closebtn {
+			position: fixed !important;
+			top: 15px !important;
+			left: 15px !important;
+			width: 44px !important;
+			height: 44px !important;
+			border-radius: 50% !important;
+			background-color: white !important;
+			color: black !important;
+			border: none !important;
+			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+			font-weight: 900 !important;
+			font-size: 20px !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			padding-bottom: 8px !important; /* Noktaları tam ortalamak için */
+			cursor: pointer;
+		}
+
+		/* Yardım Butonu (Sağ Üst, Tam Yuvarlak) */
+		#helpbtn {
+			position: fixed !important;
+			top: 15px !important;
+			right: 15px !important;
+			width: 44px !important;
+			height: 44px !important;
+			border-radius: 50% !important;
+			background-color: white !important;
+			border: none !important;
+			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			cursor: pointer;
+		}
+
+		/* Koordinat Göstergesi (Üst Orta - Orjinal Kapsül Şekli) */
+		#positionIndicator {
+			position: fixed !important;
+			top: 15px !important;
+			left: 50% !important;
+			transform: translateX(-50%) !important;
+			background-color: rgba(0, 0, 0, 0.65) !important; /* Yarı saydam siyah */
+			color: white !important;
+			padding: 8px 18px !important;
+			border-radius: 50px !important; /* Kapsül şekli */
+			font-family: monospace !important;
+			font-size: 14px !important;
 			font-weight: bold !important;
 			border: none !important;
-			box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+			backdrop-filter: blur(4px); /* Arkayı hafif bulanıklaştır */
+		}
+
+		/* Chat Butonu (Sağ Alt Köşe, Orjinal Yerleşimi) */
+		#chatbtn {
+			position: fixed !important;
+			bottom: 20px !important;
+			right: 20px !important;
+			width: 55px !important;
+			height: 55px !important;
+			border-radius: 50% !important;
+			background-color: white !important;
+			border: none !important;
+			box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			cursor: pointer;
+		}
+
+		/* Alttaki 'Bir Piksel Yerleştir' Butonu (Orjinal Kapsül Tasarımı) */
+		#place {
+			position: fixed !important;
+			bottom: 20px !important;
+			left: 50% !important;
+			transform: translateX(-50%) !important;
+			background-color: #ffffff !important;
+			color: #000000 !important;
+			border-radius: 50px !important; 
+			padding: 14px 30px !important;
+			font-weight: bold !important;
+			font-size: 15px !important;
+			border: none !important;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
 			text-transform: uppercase;
 			letter-spacing: 1px;
+			cursor: pointer;
+		}
+
+		/* İkonların resim hizalamaları */
+		.icon-image {
+			width: 22px !important;
+			height: auto !important;
 		}
 	</style>
 </head>
