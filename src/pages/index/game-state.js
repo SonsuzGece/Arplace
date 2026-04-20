@@ -1,7 +1,6 @@
 "use strict";
 import { DEFAULT_COOLDOWN, DEFAULT_HEIGHT, DEFAULT_PALETTE, DEFAULT_PALETTE_USABLE_REGION, DEFAULT_WIDTH, PLACEMENT_MODE, supabase } from "../../defaults";
 
-// Sitenin Görüntü Değişkenleri
 export let BOARD = null;
 export let CHANGES = null;
 export let RAW_BOARD = null;
@@ -12,7 +11,6 @@ export let WIDTH = DEFAULT_WIDTH;
 export let HEIGHT = DEFAULT_HEIGHT;
 export let COOLDOWN = DEFAULT_COOLDOWN;
 
-// Sitenin Çökmemesi İçin Korunan Yan Değişkenler
 export const intIdNames = new Map();
 export let intIdPositions = new Map();
 export let account = null;
@@ -26,33 +24,28 @@ export let spectatingIntId = null;
 export let cooldownEndDate = null;
 export let onCooldown = false;
 
-// Yükleme Ekranını Geçmek İçin Sahte Değişken
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 
-// Orijinal fetchBoard (artık boş)
 export async function fetchBoard() { return null; }
 
-// SUPABASE BAĞLANTI MOTORUMUZ
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus !== "initial" && connectStatus !== "disconnected") return;
     connectStatus = "connected";
 
-    // 1. Tuvali oluştur (31 numaralı renk paletimizde beyazdır)
     setSize(WIDTH, HEIGHT);
 
-    // 2. Sayfa açıldığında veritabanındaki eski pikselleri çek
+    // Supabase'den eski pikselleri çek
     supabase.from('pixels').select('*').then(({ data, error }) => {
         if (data) {
             for (const pixel of data) {
                 const index = pixel.x % WIDTH + (pixel.y % HEIGHT) * WIDTH;
                 setPixelI(index, parseInt(pixel.color));
             }
-            // Ekrana yansıt
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
         }
     });
 
-    // 3. CANLI YAYIN: Başkası piksel koyduğunda anında gör (Realtime)
+    // Başkalarının koyduğu pikselleri anlık gör
     supabase
         .channel('public:pixels')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
@@ -65,39 +58,53 @@ export function connect(device, server = "", vip = undefined) {
         })
         .subscribe();
 
-    // Sitenin yükleme (Loading) ekranında kalmaması için "Her şey hazır" sinyali gönder
+    // -----------------------------------------------------------------
+    // İŞTE MENÜYÜ AÇACAK OLAN SİHİRLİ SİNYALLER (BURAYI EKLEDİK)
+    // -----------------------------------------------------------------
+    
+    // 1. Siteye sahte bir "Giriş Yaptın" ID'si veriyoruz ki menüyü göstersin
+    intId = Math.floor(Math.random() * 10000);
+    window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
+    window.dispatchEvent(new CustomEvent("chatname", { detail: { chatName: "Oyuncu" }, bubbles: true, composed: true }));
+    
+    // 2. Arayüze "Renk Paleti Budur" sinyalini yolluyoruz
+    window.dispatchEvent(new CustomEvent("palette", {
+        detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end },
+        bubbles: true,
+        composed: true
+    }));
+
+    // 3. Bekleme süresini ve oyunu tamamen başlat
+    window.dispatchEvent(new CustomEvent("cooldown", {
+        detail: { endDate: new Date(), cooldown: COOLDOWN },
+        bubbles: true,
+        composed: true
+    }));
+
     window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
     window.dispatchEvent(new CustomEvent("online", { detail: { count: 1 }, bubbles: true, composed: true }));
 }
 
-// BİZ PİKSEL KOYDUĞUMUZDA NE OLACAK?
 export function sendServerMessage(name, args=undefined, event=undefined) {
     if (name === "putPixel") {
         const position = args.position !== undefined ? args.position : (Array.isArray(args) ? args[0] : null);
         const color = args.colour !== undefined ? args.colour : (Array.isArray(args) ? args[1] : null);
         
         if (position !== null && color !== null) {
-            // Index'i X ve Y koordinatlarına çevir
             const x = position % WIDTH;
             const y = Math.floor(position / WIDTH);
             
-            // Bizim ekranımıza anında koy (gecikme hissetmemek için)
             setPixelI(position, color);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            // Supabase'e kaydet (diğerleri de görsün)
             supabase.from('pixels').upsert({ x: x, y: y, color: color.toString() }).then();
             
-            // Bekleme süresi (Cooldown) başlat
             setCooldown(Date.now() + COOLDOWN);
         }
     }
 }
 
-// Sitenin Hata Vermemesi İçin Boş Bırakılan Yardımcılar
-export async function makeServerRequest(call, args=undefined) {
-    return null; 
-}
+export async function makeServerRequest(call, args=undefined) { return null; }
 
 export function setSize(width, height) {
     WIDTH = width;
