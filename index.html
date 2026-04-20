@@ -5,15 +5,15 @@
 	<link rel="apple-touch-icon" href="favicon.png">
 	<link rel="icon" type="image/x-icon" href="favicon.png">
 	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="apple-mobile-web-app-title" content="place">
+	<meta name="apple-mobile-web-app-title" content="Arplace">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-	<meta property="og:title" content="r/place 2"/>
-	<meta name="description" content="Faithful recreation of reddit's r/place event, running forever">
-	<meta property="og:description" content="There is an empty canvas. You may place a tile upon it, but you must wait to place another. Individually you can create something. Together you can create something more." />
+	<meta property="og:title" content="Arplace"/>
+	<meta name="description" content="Herkese açık piksel tuvali — Arplace">
+	<meta property="og:description" content="Boş bir tuval var. Üzerine renkli bir piksel koyabilirsin ama yenisini yerleştirmek için beklemelisin. Tek başına bir şeyler yapabilirsin. Topluluk ile daha fazlasını yapabilirsin." />
 	<meta property="og:image" content="https://preview.redd.it/rreqw9qpy8r81.png?auto=webp&s=f58d371c5505d66439c82de9040dfd99a3685015" />
 	<meta name="theme-color" content="#ff4500">
-	<title>r/place: rplace.live</title>
+	<title>Arplace</title>
 	<link rel="stylesheet" href="styles.css">
 	<link rel="stylesheet" href="shared.css">
 	<script type="module" src="src/defaults.js"></script>
@@ -39,33 +39,37 @@
 	<script type="module" src="src/pages/index/hcaptcha-dialog.js"></script>
 	<script>window.addEventListener("undefineglobals",(()=>{delete WebSocket,delete Worker,Object.defineProperty(window,"eval",{value:function(){throw new Error},writable:!1,configurable:!1})}));</script>
 	<script type="module" src="src/pages/index/index.js"></script>
-	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script><script src="https://blobk.at/science.js" type="module"></script>
+	<script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script>
+	<!-- Supabase Client -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 	<style>
-		/* Arka Planı Açık-Koyu Gri Yap (Orijinale en yakın nötr ton) */
+		/* =============================================
+		   TEMEL ARKA PLAN
+		   ============================================= */
 		body, #maincontent, #bgWrapper {
-			background-color: #36393e !important; 
+			background-color: #36393e !important;
 			color: white;
 		}
-		
-		/* --- Z-INDEX KATMAN AYARLARI --- */
-		/* Butonlar her zaman tuvalin üstünde kalacak (9000) */
-		.layout, #place, #positionIndicator, #chatbtn, #closebtn, #helpbtn, #profileBtn, #freeDrawToggle {
+
+		/* =============================================
+		   Z-INDEX KATMAN AYARLARI
+		   ============================================= */
+		.layout, #place, #positionIndicator, #helpbtn, #profilebtn {
 			z-index: 9000 !important;
 		}
-
-		/* Renk paleti açıldığında butonların da ÜSTÜNE çıkacak (10000) */
 		#palette {
-			z-index: 10000 !important; 
+			z-index: 10000 !important;
 			background-color: #ffffff !important;
 			padding: 15px 10px 25px 10px !important;
-			box-shadow: 0 -5px 25px rgba(0,0,0,0.5) !important; 
+			box-shadow: 0 -5px 25px rgba(0,0,0,0.5) !important;
 			border-top-left-radius: 15px !important;
 			border-top-right-radius: 15px !important;
 		}
 
-		/* --- BUTON VE KOORDİNAT TASARIMLARI --- */
-		/* 3 Nokta Menü Butonu */
-		#closebtn {
+		/* =============================================
+		   PROFİL BUTONU (sol üst — eski 3 nokta)
+		   ============================================= */
+		#profilebtn {
 			position: fixed !important;
 			top: 15px !important;
 			left: 15px !important;
@@ -76,16 +80,246 @@
 			color: black !important;
 			border: none !important;
 			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
-			font-weight: 900 !important;
-			font-size: 20px !important;
 			display: flex !important;
 			align-items: center !important;
 			justify-content: center !important;
-			padding-bottom: 8px !important;
 			cursor: pointer;
+			padding: 0 !important;
+			overflow: hidden;
+		}
+		#profilebtn svg {
+			width: 24px;
+			height: 24px;
+		}
+		/* Giriş yapıldığında yeşil nokta */
+		#profilebtn.logged-in::after {
+			content: '';
+			position: absolute;
+			bottom: 4px;
+			right: 4px;
+			width: 10px;
+			height: 10px;
+			background: #22c55e;
+			border-radius: 50%;
+			border: 2px solid white;
 		}
 
-		/* Yardım Butonu */
+		/* =============================================
+		   PROFİL PANELİ
+		   ============================================= */
+		#profilePanel {
+			position: fixed !important;
+			top: 68px !important;
+			left: 15px !important;
+			width: 280px !important;
+			background: white !important;
+			border-radius: 16px !important;
+			box-shadow: 0 8px 32px rgba(0,0,0,0.25) !important;
+			z-index: 11000 !important;
+			padding: 20px !important;
+			display: none;
+			flex-direction: column;
+			gap: 12px;
+			animation: slideDown 0.2s ease;
+		}
+		@keyframes slideDown {
+			from { opacity: 0; transform: translateY(-10px); }
+			to   { opacity: 1; transform: translateY(0); }
+		}
+		#profilePanel.visible {
+			display: flex !important;
+		}
+
+		/* Giriş yapılmamış hali */
+		#profileLoginSection {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+		#profileLoginSection h3 {
+			margin: 0;
+			font-size: 15px;
+			color: #1a1a1a;
+			font-weight: 700;
+		}
+		#profileLoginSection p {
+			margin: 0;
+			font-size: 12px;
+			color: #888;
+		}
+		#tokenInput {
+			width: 100%;
+			box-sizing: border-box;
+			border: 1.5px solid #e0e0e0;
+			border-radius: 10px;
+			padding: 10px 14px;
+			font-size: 14px;
+			font-family: monospace;
+			letter-spacing: 1px;
+			outline: none;
+			transition: border-color 0.2s;
+		}
+		#tokenInput:focus {
+			border-color: #ff4500;
+		}
+		#tokenLoginBtn {
+			width: 100%;
+			background: #ff4500;
+			color: white;
+			border: none;
+			border-radius: 10px;
+			padding: 11px;
+			font-size: 14px;
+			font-weight: 700;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		#tokenLoginBtn:hover { background: #e03d00; }
+
+		/* Giriş yapılmış hali */
+		#profileUserSection {
+			display: none;
+			flex-direction: column;
+			gap: 10px;
+		}
+		#profileUserSection.visible {
+			display: flex;
+		}
+		.profile-user-header {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+		.profile-avatar {
+			width: 40px;
+			height: 40px;
+			border-radius: 50%;
+			background: linear-gradient(135deg, #ff4500, #ff8c00);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: white;
+			font-weight: 700;
+			font-size: 16px;
+			flex-shrink: 0;
+		}
+		.profile-user-info {
+			flex: 1;
+		}
+		#profileUsername {
+			font-size: 15px;
+			font-weight: 700;
+			color: #1a1a1a;
+			margin: 0;
+		}
+		#profileRoleBadge {
+			display: inline-block;
+			padding: 2px 8px;
+			border-radius: 20px;
+			font-size: 11px;
+			font-weight: 700;
+			text-transform: uppercase;
+			margin-top: 2px;
+		}
+		#profileRoleBadge.user  { background: #f0f0f0; color: #666; }
+		#profileRoleBadge.vip   { background: #fef3c7; color: #d97706; }
+		#profileRoleBadge.admin { background: #fee2e2; color: #dc2626; }
+
+		.profile-stat {
+			font-size: 12px;
+			color: #888;
+			display: flex;
+			gap: 12px;
+		}
+		.profile-stat span { display: flex; align-items: center; gap: 4px; }
+
+		#adminPanelBtn {
+			width: 100%;
+			background: #1e1e2e;
+			color: white;
+			border: none;
+			border-radius: 10px;
+			padding: 10px;
+			font-size: 13px;
+			font-weight: 700;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			transition: background 0.2s;
+		}
+		#adminPanelBtn:hover { background: #2d2d44; }
+
+		#profileLogoutBtn {
+			width: 100%;
+			background: transparent;
+			color: #ef4444;
+			border: 1.5px solid #ef4444;
+			border-radius: 10px;
+			padding: 9px;
+			font-size: 13px;
+			font-weight: 700;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		#profileLogoutBtn:hover {
+			background: #fef2f2;
+		}
+
+		/* Panel overlay (tıklayınca kapansın) */
+		#profileOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 10999;
+			display: none;
+		}
+		#profileOverlay.visible { display: block; }
+
+		/* =============================================
+		   BİLDİRİM TOASTLARI
+		   ============================================= */
+		#notificationContainer {
+			position: fixed;
+			top: 80px;
+			left: 50%;
+			transform: translateX(-50%);
+			z-index: 99999;
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			pointer-events: none;
+			width: 90%;
+			max-width: 340px;
+		}
+		.arplace-toast {
+			padding: 12px 18px;
+			border-radius: 12px;
+			font-size: 14px;
+			font-weight: 600;
+			text-align: center;
+			animation: toastIn 0.3s ease;
+			box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+			pointer-events: auto;
+		}
+		.arplace-toast.success {
+			background: #dcfce7;
+			color: #166534;
+			border: 1.5px solid #86efac;
+		}
+		.arplace-toast.error {
+			background: #fee2e2;
+			color: #991b1b;
+			border: 1.5px solid #fca5a5;
+		}
+		@keyframes toastIn {
+			from { opacity: 0; transform: translateY(-12px); }
+			to   { opacity: 1; transform: translateY(0); }
+		}
+
+		/* =============================================
+		   YARDIM BUTONU
+		   ============================================= */
 		#helpbtn {
 			position: fixed !important;
 			top: 15px !important;
@@ -102,13 +336,15 @@
 			cursor: pointer;
 		}
 
-		/* Koordinat Göstergesi (Kapsül Şekli ve Ortalama) */
+		/* =============================================
+		   KOORDİNAT GÖSTERGESİ
+		   ============================================= */
 		#positionIndicator {
 			position: fixed !important;
 			top: 15px !important;
 			left: 50% !important;
 			transform: translateX(-50%) !important;
-			background-color: rgba(0, 0, 0, 0.7) !important;
+			background-color: rgba(0,0,0,0.7) !important;
 			color: white !important;
 			padding: 8px 18px !important;
 			border-radius: 50px !important;
@@ -123,24 +359,9 @@
 			backdrop-filter: blur(4px);
 		}
 
-		/* Chat Butonu (Sağ Alt Köşe) */
-		#chatbtn {
-			position: fixed !important;
-			bottom: 20px !important;
-			right: 20px !important;
-			width: 55px !important;
-			height: 55px !important;
-			border-radius: 50% !important;
-			background-color: white !important;
-			border: none !important;
-			box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
-			display: flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			cursor: pointer;
-		}
-
-		/* 'Bir Piksel Yerleştir' Butonu */
+		/* =============================================
+		   PİKSEL YERLEŞTİR BUTONU
+		   ============================================= */
 		#place {
 			position: fixed !important;
 			bottom: 20px !important;
@@ -148,7 +369,7 @@
 			transform: translateX(-50%) !important;
 			background-color: #ffffff !important;
 			color: #000000 !important;
-			border-radius: 50px !important; 
+			border-radius: 50px !important;
 			padding: 14px 30px !important;
 			font-weight: bold !important;
 			font-size: 15px !important;
@@ -159,35 +380,63 @@
 			cursor: pointer;
 		}
 
-		.icon-image {
-			width: 22px !important;
-			height: auto !important;
+		/* =============================================
+		   SERBEST MOD TOGGLE (Admin/VIP)
+		   ============================================= */
+		#freeModeToggle {
+			position: fixed !important;
+			bottom: 20px !important;
+			right: 20px !important;
+			background: #1e1e2e !important;
+			color: white !important;
+			border: none !important;
+			border-radius: 50px !important;
+			padding: 10px 16px !important;
+			font-size: 12px !important;
+			font-weight: 700 !important;
+			cursor: pointer;
+			display: none;
+			align-items: center;
+			gap: 6px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+			z-index: 9000 !important;
+			transition: background 0.2s;
+		}
+		#freeModeToggle.active {
+			background: #ff4500 !important;
+		}
+		#freeModeToggle .fm-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: rgba(255,255,255,0.5);
+			transition: background 0.2s;
+		}
+		#freeModeToggle.active .fm-dot {
+			background: white;
 		}
 
-		/* --- YENİ EKLENEN PALET DÜZENLEMELERİ (4x8 Izgara) --- */
-		/* Renk kutucukları (Grid ve Boşluklar) */
+		/* =============================================
+		   RENK PALETİ
+		   ============================================= */
 		#colours {
 			display: grid !important;
 			grid-template-columns: repeat(8, 1fr) !important;
-			gap: 4px !important; 
+			gap: 4px !important;
 			justify-content: center !important;
 			padding-bottom: 15px !important;
 			width: 100% !important;
-			max-width: 400px !important; /* Görseldeki gibi derli toplu durması için */
+			max-width: 400px !important;
 			margin: 0 auto !important;
 		}
-
-		/* JavaScript ile oluşturulan renk kutuları */
 		#colours > * {
-			aspect-ratio: 1 / 1 !important; 
+			aspect-ratio: 1 / 1 !important;
 			width: 100% !important;
 			height: auto !important;
-			border-radius: 3px !important; 
+			border-radius: 3px !important;
 			cursor: pointer !important;
-			box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1) !important; 
+			box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1) !important;
 		}
-
-		/* İptal ve Onay Butonlarının Kapsayıcısı */
 		#palette .buttons {
 			display: flex !important;
 			gap: 15px !important;
@@ -196,13 +445,11 @@
 			max-width: 300px !important;
 			margin: 0 auto !important;
 		}
-
-		/* İptal (X) ve Onay (Tik) Butonları Orjinal Kapsül Tasarımı */
 		#pcancel, #pok {
 			flex: 1 !important;
 			background-color: #ffffff !important;
-			border: 1px solid #dcdcdc !important; 
-			border-radius: 50px !important; 
+			border: 1px solid #dcdcdc !important;
+			border-radius: 50px !important;
 			height: 40px !important;
 			display: flex !important;
 			align-items: center !important;
@@ -210,647 +457,851 @@
 			cursor: pointer !important;
 			box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
 		}
-
-		#pcancel:active, #pok:active {
-			background-color: #f5f5f5 !important;
-		}
-
+		#pcancel:active, #pok:active { background-color: #f5f5f5 !important; }
 		#pcancel svg, #pok svg {
 			width: 22px !important;
 			height: 22px !important;
 			fill: #000000 !important;
 		}
 
-		/* --- YENİ EKLENEN ARAYÜZ CSS (PROFIL, TOAST, MODAL) --- */
-		#profileBtn {
-			position: fixed !important;
-			top: 15px !important;
-			left: 15px !important;
-			width: 44px !important;
-			height: 44px !important;
-			border-radius: 50% !important;
-			background-color: white !important;
-			color: black !important;
-			border: none !important;
-			box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+		.icon-image {
+			width: 22px !important;
+			height: auto !important;
+		}
+
+		/* =============================================
+		   HAKKINDA MODALİ — YENİ TASARIM
+		   ============================================= */
+		.modal-social-row {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 8px 16px;
+			text-decoration: none;
+			color: #1a1a1a;
+			transition: background 0.15s;
+			border-radius: 8px;
+		}
+		.modal-social-row:hover { background: #f5f5f5; }
+		.modal-social-row svg { flex-shrink: 0; }
+		.modal-social-row span {
+			font-size: 14px;
+			font-weight: 600;
+		}
+		.modal-social-divider {
+			height: 1px;
+			background: #f0f0f0;
+			margin: 4px 16px;
+		}
+
+		/* Footer ses butonu kapsül */
+		#muteButton {
 			display: flex !important;
 			align-items: center !important;
-			justify-content: center !important;
-			cursor: pointer;
-			z-index: 9000 !important;
+			gap: 6px !important;
+			padding: 8px 14px !important;
+			border-radius: 50px !important;
+			border: none !important;
+			background: #f5f5f5 !important;
+			cursor: pointer !important;
+			font-size: 13px !important;
+			font-weight: 600 !important;
+			color: #333 !important;
+			white-space: nowrap !important;
 		}
-		#profileBtn svg { width: 24px; height: 24px; fill: #000; }
-
-		#freeDrawToggle {
-			position: fixed !important;
-			bottom: 20px !important;
-			left: calc(50% + 110px) !important; 
-			width: 48px !important;
-			height: 48px !important;
-			border-radius: 50% !important;
-			background-color: white !important;
-			border: 1px solid #ccc !important;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-			display: none; /* JS ile acilacak */
-			align-items: center !important;
-			justify-content: center !important;
-			cursor: pointer;
-			z-index: 9000 !important;
-		}
-		#freeDrawToggle.active { background-color: #ff4500 !important; border-color: #ff4500 !important; }
-		#freeDrawToggle.active svg { fill: white !important; }
-		#freeDrawToggle svg { width: 24px; height: 24px; fill: black; }
-
-		#toastContainer { position: fixed; top: 75px; left: 50%; transform: translateX(-50%); z-index: 30000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-		.toast { padding: 12px 25px; border-radius: 50px; font-weight: bold; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); opacity: 0; transform: translateY(-20px); transition: all 0.3s ease; text-align: center; }
-		.toast.show { opacity: 1; transform: translateY(0); }
-		.toast-success { background-color: #28a745; }
-		.toast-error { background-color: #dc3545; }
-
-		.custom-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 20000; display: none; align-items: center; justify-content: center; }
-		.custom-card { background: #2b2b36; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #444; color: white; max-height: 85vh; overflow-y: auto; }
-		.custom-card h2 { color: #ff4500; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
-		.custom-card input, .custom-card select { width: 100%; padding: 12px; margin-bottom: 15px; background: #1e1e24; border: 1px solid #555; color: white; border-radius: 50px; box-sizing: border-box; outline: none; text-align: center; }
-		.custom-btn { width: 100%; padding: 12px; background: #ff4500; border: none; color: white; font-weight: bold; border-radius: 50px; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
-		.custom-btn:hover { background: #e03e00; }
-		.close-card-btn { background: #555; }
-		.close-card-btn:hover { background: #444; }
-		.profile-stat { display: flex; justify-content: space-between; background: #1e1e24; padding: 12px 20px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #444; font-size: 14px; }
+		#muteButton:hover { background: #e8e8e8 !important; }
+		#muteButton svg { width: 18px; height: 18px; }
 	</style>
 </head>
-	<body>
-		<div id="toastContainer"></div>
+<body>
+	<!-- =============================================
+	     YÜKLENİYOR EKRANI
+	     ============================================= -->
+	<div id="loadingScreen">
+		<canvas id="waitingGameCanvas"></canvas>
+		<img src="images/rplace-loader.gif" alt="Arplace" class="loading-logo"/>
+		<span id="loadingMessage" class="loading-message" hidden></span>
+		<div id="connproblems">
+			<span translate="connectionProblems">Bağlantı sorunu mu?</span>
+			<a id="connProblemsResetButton" href translate="tryClickingHere">buraya tıklamayı dene</a>
+		</div>
+	</div>
 
-		<div id="authOverlay" class="custom-overlay" style="display: none;">
-			<div class="custom-card">
-				<h2>Erişim Kodu</h2>
-				<p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Tuvali boyamak için admin tarafından verilen kodu gir.</p>
-				<input type="text" id="authTokenInput" placeholder="Access Token (Örn: place_xyz)" autocomplete="off">
-				<button id="authBtn" class="custom-btn">Giriş Yap</button>
-				<p id="visitorBtn" style="margin-top: 15px; color: #ff4500; cursor: pointer; text-decoration: underline; font-size: 14px;">Sadece İzleyici Olarak Devam Et</p>
+	<!-- =============================================
+	     ANA İÇERİK
+	     ============================================= -->
+	<div id="maincontent">
+		<div id="bgWrapper"></div>
+
+		<!-- VIEWPORT -->
+		<div id="viewport" noselect>
+			<div id="canvparent1" noselect>
+				<img id="edge" height="226" width="290" src="images/snoo-edge.png" alt="Snoo">
+			</div>
+			<canvas id="canvas" width="0" height="0" noselect></canvas>
+			<canvas id="viewportCanvas"></canvas>
+			<div id="canvparent2" noselect>
+				<div id="canvselect">
+					<img id="canvSelectImage" theme="pixelselect" alt="" src="svg/pixel-select-2022.svg" draggable="false">
+				</div>
+				<img id="templateImage" width="auto" height="auto" alt="">
+			</div>
+			<div id="placeContext" class="context-menu" style="display: none;">
+				<menu>
+					<li><button type="button" id="placeContextReportButton" disabled>Bildir</button></li>
+					<li><button type="button" id="placeContextInfoButton">Piksel sahibini göster</button></li>
+					<li id="placeContextModItem"><button type="button" id="placeContextModButton" disabled>Moderasyon</button></li>
+				</menu>
+			</div>
+			<div id="placeChatMessages">
+				<div class="place-chat" id="idPosition" style="display: none;">
+					<div class="content">
+						<span translate="placedBy">Koyan:</span>
+						<span id="idPositionPlacer"></span>
+					</div>
+					<div class="arrow"></div>
+				</div>
 			</div>
 		</div>
 
-		<div id="profileOverlay" class="custom-overlay">
-			<div class="custom-card">
-				<h2 id="profUsername">Profil</h2>
-				<div class="profile-stat"><span>Rol:</span> <b id="profRole">-</b></div>
-				<div class="profile-stat"><span>Kayıt Tarihi:</span> <b id="profDate">-</b></div>
-				<div class="profile-stat"><span>Koyulan Piksel:</span> <b id="profPixels">0</b></div>
-				
-				<button id="openAdminBtn" class="custom-btn" style="display: none; background: #28a745; margin-top: 15px;">Yönetim Paneli</button>
-				<button id="logoutBtn" class="custom-btn close-card-btn" style="margin-top: 10px;">Çıkış Yap</button>
-				<p id="closeProfileBtn" style="margin-top: 15px; color: #aaa; cursor: pointer; text-decoration: underline; font-size: 14px;">Kapat</p>
+		<!-- =============================================
+		     PROFİL BUTONU (sol üst — eski 3 nokta yerine)
+		     ============================================= -->
+		<button type="button" noselect id="profilebtn" class="layout" title="Profil">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+				<path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+			</svg>
+		</button>
+
+		<!-- KOORDİNAT GÖSTERGESİ -->
+		<r-position-indicator id="positionIndicator" class="layout"></r-position-indicator>
+
+		<!-- YARDIM BUTONU -->
+		<button type="button" noselect id="helpbtn" class="layout" title="Hakkında">
+			<img class="icon-image" alt="?" src="svg/help.svg">
+		</button>
+
+		<!-- PİKSEL YERLEŞTİR BUTONU -->
+		<button type="button" id="place" class="layout" translate="connecting" noselect>Bağlanıyor...</button>
+
+		<!-- SERBEST MOD TOGGLE (Admin/VIP için, başlangıçta gizli) -->
+		<button type="button" id="freeModeToggle" title="Serbest Mod">
+			<div class="fm-dot"></div>
+			<span id="freeModeLabel">SERBEST</span>
+		</button>
+
+		<!-- BİLDİRİM CONTAINER -->
+		<div id="notificationContainer"></div>
+
+		<!-- PROFİL PANEL OVERLAY (dışarı tıklayınca kapansın) -->
+		<div id="profileOverlay"></div>
+
+		<!-- PROFİL PANELİ -->
+		<div id="profilePanel">
+			<!-- GİRİŞ YAPILMAMIŞ -->
+			<div id="profileLoginSection">
+				<h3>🎨 Arplace Girişi</h3>
+				<p>Piksel koymak için access token'ınızı girin.</p>
+				<input type="text" id="tokenInput" placeholder="Access Token (ör: aB3#kZ9@)" maxlength="20" autocomplete="off" spellcheck="false">
+				<button type="button" id="tokenLoginBtn">Giriş Yap</button>
+			</div>
+			<!-- GİRİŞ YAPILMIŞ -->
+			<div id="profileUserSection">
+				<div class="profile-user-header">
+					<div class="profile-avatar" id="profileAvatar">?</div>
+					<div class="profile-user-info">
+						<p id="profileUsername">Kullanıcı</p>
+						<span id="profileRoleBadge" class="user">Üye</span>
+					</div>
+				</div>
+				<div class="profile-stat">
+					<span>📅 <span id="profileJoinDate">-</span></span>
+					<span>🎨 <span id="profilePixelCount">0</span> piksel</span>
+				</div>
+				<!-- Admin paneli butonu — sadece admin görür -->
+				<button type="button" id="adminPanelBtn" style="display:none;">
+					⚙️ Admin Paneli
+				</button>
+				<button type="button" id="profileLogoutBtn">Çıkış Yap</button>
 			</div>
 		</div>
 
-		<div id="adminOverlay" class="custom-overlay">
-			<div class="custom-card" style="max-width: 500px;">
-				<h2>Yönetim Paneli</h2>
-				<div style="background: #1e1e24; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #444;">
-					<h3 style="margin-top: 0; font-size: 16px;">Yeni Üye Ekle</h3>
-					<input type="text" id="newUsername" placeholder="Kullanıcı Adı">
-					<select id="newUserRole">
-						<option value="user">Normal Üye (1sn)</option>
-						<option value="vip">VIP Üye (Süresiz)</option>
-						<option value="admin">Admin (Süresiz)</option>
-					</select>
-					<button id="createUserBtn" class="custom-btn" style="background: #28a745;">Üye Oluştur & Token Ver</button>
-				</div>
-				<h3 style="font-size: 16px;">Kayıtlı Üyeler</h3>
-				<div id="adminUserList" style="text-align: left; max-height: 250px; overflow-y: auto;">
-					</div>
-				<button id="closeAdminBtn" class="custom-btn close-card-btn" style="margin-top: 15px;">Geri Dön</button>
+		<!-- =============================================
+		     MENÜLER (değiştirilmedi)
+		     ============================================= -->
+		<div id="advancedViewMenu" noselect class="toast-menu">
+			<div class="menu-header">
+				<h2>Gelişmiş Görünüm:</h2>
+				<r-close-icon id="advancedViewCloseButton" class="active"></r-close-icon>
+			</div>
+			<div class="menu-body">
+				<ul id="advancedViewList">
+					<li>
+						<label>
+							Changes layer:
+							<input type="checkbox" id="viewChangesLayer" checked="true">
+						</label>
+					</li>
+					<li>
+						<label>
+							Pixels layer:
+							<input type="checkbox" id="viewSocketPixelsLayer" checked="true">
+						</label>
+					</li>
+				</ul>
 			</div>
 		</div>
 
-		<div id="loadingScreen">
-			<canvas id="waitingGameCanvas"></canvas>
-			<img src="images/rplace-loader.gif" alt="rplace.live" class="loading-logo"/>
-			<span id="loadingMessage" class="loading-message" hidden></span>
-			<div id="connproblems">
-				<span translate="connectionProblems">Connection problems?</span>
-				<a id="connProblemsResetButton" href translate="tryClickingHere">try clicking here</a>
-				<br>
-				<span translate="orTweetUs">or tweet us</span>
-				<a href="https://x.com/rplacelive">@rplacelive</a>
+		<div id="spectateMenu" class="toast-menu">
+			<div class="menu-header">
+				<h2>İzle:</h2>
+				<r-close-icon id="spectateCloseButton" class="active"></r-close-icon>
+			</div>
+			<div class="menu-body">
+				<h4>Kullanıcı izle:</h4>
+				<label>
+					Kullanıcı ID:
+					<input id="spectateUserIdInput" type="number" placeholder="Kullanıcı ID gir">
+				</label>
+				<p id="spectateStatusLabel"></p>
 			</div>
 		</div>
-		<div id="maincontent">
-			<div id="bgWrapper">
-				</div>
 
-			<div id="viewport" noselect>
-				<div id="canvparent1" noselect>
-					<img id="edge" height="226" width="290" src="images/snoo-edge.png" alt="Snoo">
-				</div>
-				<canvas id="canvas" width="0" height="0" noselect></canvas>
-				<canvas id="viewportCanvas"></canvas>
-				<div id="canvparent2" noselect>
-					<div id="canvselect">
-						<img id="canvSelectImage" theme="pixelselect" alt="" src="svg/pixel-select-2022.svg" draggable="false">
-					</div>
-					<img id="templateImage" width="auto" height="auto" alt="">
-				</div>
-				<div id="placeContext" class="context-menu" style="display: none;">
-					<menu>
-						<li><button type="button" id="placeContextReportButton" disabled>Report here</button></li>
-						<li><button type="button" id="placeContextInfoButton">Show pixel placer info</button></li>
-						<li id="placeContextModItem"><button type="button" id="placeContextModButton" disabled>Moderate here</button></li>
-					</menu>
-				</div>
-				<div id="placeChatMessages">
-					<div class="place-chat" id="idPosition" style="display: none;">
-						<div class="content">
-							<span translate="placedBy">Placed by:</span>
-							<span id="idPositionPlacer"></span>
-						</div>
-						<div class="arrow"></div>
-					</div>
-				</div>
+		<div id="overlayMenuOld" noselect class="toast-menu">
+			<div class="menu-header">
+				<h2 style="display: inline;flex-grow: 1;">Overlay:</h2>
+				<r-close-icon id="overlayMenuOldCloseButton" class="active"></r-close-icon>
 			</div>
-
-			<button type="button" noselect id="closebtn" class="layout" title="More" style="display:none !important;">...</button>
-			<button type="button" noselect id="profileBtn" class="layout" title="Profil">
-				<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-			</button>
-			
-			<r-position-indicator id="positionIndicator" class="layout"></r-position-indicator>
-			<button type="button" noselect id="helpbtn" class="layout" title="Help">
-				<img class="icon-image" alt="?" src="svg/help.svg">
-			</button>
-			
-			<button type="button" id="place" class="layout" translate="connecting" noselect>Connecting...</button>
-			<button type="button" id="freeDrawToggle" title="Serbest Mod" noselect style="display: none;">
-				<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-			</button>
-			
-			<button type="button" id="chatbtn" class="layout" noselect style="display:none !important;">
-				<img alt="Chat" class="icon-image" src="svg/chat.svg" style="width:16px; height:21px">
-			</button>
-
-			<div id="chatPanel">
-				<div id="namePanel">
-					<div class="name-panel-header">
-						<h2 id="namePanelHeader" translate="nicknameToContinue">Enter a nickname to continue:</h2>
-						<r-close-icon id="namePanelCloseButton" class="active"></r-close-icon>
-					</div>
-					<h4 id="nicknameSubheading" style="color: lightgrey;" translate="pleaseBeRespectful">Please be respectful and try not to spam!</h4>
-					<br>
-					<div class="name-input-container">
-						<input id="nameInput" type="text" placeholder="Enter nickname..." maxlength="16"> <button id="nameButton" type="button" title="Confirm name">
-							<img alt="✔️" src="svg/green-checkmark.svg">
-						</button>
-					</div>
-				</div>
-				<div class="chat-header" noselect>
-					<p style="white-space:nowrap" translate="liveChat" class="live-chat-header2">Live Chat:</p>
-					<h2 style="white-space:nowrap" translate="liveChat" class="live-chat-header1">Live Chat:</h2>
-					<div class="channels-options">
-						<span id="channelDropParent" style="opacity: 1;">
-							<button type="button" id="channelButton" title="Change channel" class="channel-button">
-								<svg class="icon-image" style="vertical-align: bottom;" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24">
-									<path d="M480-345 240-585l43-43 197 198 197-197 43 43-240 239Z"/>
-								</svg>	
-							</button>
-							<div id="channelDrop" class="context-menu">
-								<menu id="channelDropMenu"></menu>
-							</div>
-						</span>
-						<button type="button" id="channelMineButton" class="channel-button">
-							<span id="channelMine" style="opacity: 0.5;">
-								<img id="channelMineImg" style="height: 20px; vertical-align:sub"><span id="channelMineName"></span>
-							</span>	
-						</button>
-						<button type="button" id="channelEnButton" class="channel-button">
-							<span id="channelEn" style="opacity: 0.5;">
-								<img src="svg/flag-gb.svg" style="height: 20px; vertical-align:sub" alt="EN"><span>EN</span>
-							</span>	
-						</button>
-					</div>
-					<div class="chat-header-right">
-						<div id="onlinePanel" noselect>
-							<p id="onlineCounter">...</p>
-							<svg id="playerIcon" stroke-width="0" viewBox="0 0 448 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg" style="display: inline;">
-								<path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"></path>
-							</svg>
-						</div>
-						<r-close-icon id="chatCloseButton" class="active"></r-close-icon>
-					</div>
-				</div>
-				<div id="chatContext" class="context-menu" style="display:none">
-					<menu>
-						<li style="font-size: 8px; display: none;" id="userNote"></li>
-						<li><button type="button" id="mentionUserButton" translate="mention">Mention user</button></li>
-						<li><button type="button" id="replyUserButton" translate="replyTo">Reply to user</button></li>
-						<li><button type="button" id="blockUserButton" translate="block">Block user</button></li>
-						<li style="display: none;">
-							<button type="button" id="changeMyNameButton">
-								<em translate="changeMyName">Change my name</em>
-							</button>
-						</li>
-					</menu>
-				</div>
-				<r-emoji-panel id="chatReactionsPanel"></r-emoji-panel>
-				<a id="chatAd" target="_blank" rel="noopener">
-					<button type="button" id="chatAdCloseButton" class="chat-ad-close">x</button>
-				</a>
-				<span id="adLabel" style="display: none; opacity: 0; align-self: center;" translate="adHidden">Ad hidden for 14 days!</span>
-				<button type="button" id="chatPreviousButton" class="horizontal-labeled-separator" noselect><hr><span>See previous messages</span><hr></button>
-				<div id="chatMessages"></div>
-				<div id="messageTypePanel" class="chat-input-panel" closed>
-					<input type="button" class="messageTypeBtn" title="Use the shortcut 'ctrl+enter' to send quickly" style="left: 5px;" translate="putOnCanvas" value="🫧 Put on canvas">
-					<input type="button" class="messageTypeBtn" title="Use the shortcut 'enter' to send quickly" style="right: 5px;" translate="sendInLiveChat" value="📨 Send in live chat">
-				</div>
-				<div id="messageEmojisPanel" class="chat-input-panel" closed></div>
-				<div id="messageReplyPanel" class="chat-input-panel" closed>
-					<div id="messageReplyLabel">Replying to:</div>
-					<button type="button" id="messageCancelReplyButton" title="Cancel reply">
-						<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" height="24" width="32">
-							<path d="m330-288 150-150 150 150 42-42-150-150 150-150-42-42-150 150-150-150-42 42 150 150-150 150 42 42ZM480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-156t86-127Q252-817 325-848.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 82-31.5 155T763-197.5q-54 54.5-127 86T480-80Zm0-60q142 0 241-99.5T820-480q0-142-99-241t-241-99q-141 0-240.5 99T140-480q0 141 99.5 240.5T480-140Zm0-340Z"></path>
-						</svg>
-					</button>
-				</div>
-				<div class="chat-bottom">
-					<div class="message-input-container">
-						<r-emoji-panel id="messageInputEmojiPanel" class="chat-bottom-panel"></r-emoji-panel>
-						<r-gif-panel id="messageInputGifPanel" class="chat-bottom-panel"></r-gif-panel>
-						<textarea id="messageInput" type="text" placeholder="Enter message..." translate="enterMessage" enterkeyhint="send" maxlength="200"></textarea>
-						<div class="message-input-actions">
-							<button type="button" id="messageAddEmojiButton" title="Add emoji">
-								<img alt="Add emoji" width="24" height="24" src="svg/emoji.svg" class="icon-image">
-							</button>
-							<button type="button" id="messageAddGifButton" title="Add gif">
-								<img alt="Add emoji" width="24" height="24" src="svg/gif.svg" class="icon-image">
-							</button>
-						</div>
-					</div>
-					<button type="button" id="messageOptionsButton" class="message-options">...</button>
-				</div>
-			</div>
-
-			<div id="advancedViewMenu" class="toast-menu">
-				<div class="menu-header">
-					<h2>Advanced view options:</h2>
-					<r-close-icon id="avmCloseButton" class="active"></r-close-icon>
-				</div>
-				<div class="menu-body">
-					<h3>Selection mode:</h3>
-					<r-selections-display id="avmSelectionsDisplay"></r-selections-display>
-					<button type="button" id="avmCreateSelectionButton">+ Create a selection</button>
-					<h3>Render layers:</h3>
-					<p>
-						Control what board layers are being rendered by the game:
-					</p>
-					<ul class="avm-view-layers noselect">
-						<li>
-							<label>
-								Canvas layer:
-								<input type="checkbox" id="viewCanvasLayer" checked="true">
-							</label>
-						</li>
-						<li>
-							<label>
-								Changes layer:
-								<input type="checkbox" id="viewChangesLayer" checked="true">
-							</label>
-						</li>
-						<li>
-							<label>
-								Pixels layer:
-								<input type="checkbox" id="viewSocketPixelsLayer" checked="true">
-							</label>
-						</li>
-					</ul>
-				</div>
-			</div>
-			<div id="spectateMenu" class="toast-menu">
-				<div class="menu-header">
-					<h2>Spectate:</h2>
-					<r-close-icon id="spectateCloseButton" class="active"></r-close-icon>
-				</div>
-				<div class="menu-body">
-					<h4>Spectate user:</h4>
-					<label>
-						User ID:
-						<input id="spectateUserIdInput" type="number" placeholder="Enter User ID">
-					</label>
-					<p id="spectateStatusLabel"></p>
-				</div>
-			</div>
-			<div id="overlayMenuOld" noselect class="toast-menu">
-				<div class="menu-header">
-					<h2 title="Make use of a canvas overlay image in order to help yourself better position your pixels" style="display: inline;flex-grow: 1;">Overlay:</h2>
-					<r-close-icon id="overlayMenuOldCloseButton" class="active"></r-close-icon>
-				</div>
-				<div class="menu-body">
-					<input id="overlayInput" type="file" style="width: 100%;">
-					<label>
-						Image X:
-						<input value="" id="overlayXInput" type="number" placeholder="Enter Image X" style="width: calc(50% - 5px); margin-right: 5px;"/>
-					</label>
-					<label>
-						Image Y:
-						<input value="" id="overlayYInput" type="number" placeholder="Enter Image Y" style="width: calc(50% - 5px)"/>
-					</label>
-					<label>
-						Image Opacity:
-					</label>
-					<div class="labelled-slider">
-						<input id="overlayOpacity" type="range" class="slider" min="0" value="80" max="100">
-						<label for="overlayOpacity" class="slider-label">Adjust opacity</label>
-						<div class="slider-track">
+			<div class="menu-body">
+				<input id="overlayInput" type="file" style="width: 100%;">
+				<label>
+					Image X:
+					<input value="" id="overlayXInput" type="number" placeholder="Enter Image X" style="width: calc(50% - 5px); margin-right: 5px;"/>
+				</label>
+				<label>
+					Image Y:
+					<input value="" id="overlayYInput" type="number" placeholder="Enter Image Y" style="width: calc(50% - 5px)"/>
+				</label>
+				<label>Image Opacity:</label>
+				<div class="labelled-slider">
+					<input id="overlayOpacity" type="range" class="slider" min="0" value="80" max="100">
+					<label for="overlayOpacity" class="slider-label">Adjust opacity</label>
+					<div class="slider-track">
 						<div id="overlaySliderValue" class="slider-value" data-value="80" style="--value: 80%;"></div>
-						</div>
 					</div>
-					<div id="overlayCopyButton" style="position: relative; display: flex;" title="Copy canvas link">
-						<img class="icon-image" src="svg/clipboard.svg" alt="Clipboard">
+				</div>
+				<div id="overlayCopyButton" style="position: relative; display: flex;" title="Copy canvas link">
+					<img class="icon-image" src="svg/clipboard.svg" alt="Clipboard">
+					<span style="align-self: center; margin-right: 8px;cursor: pointer;">Copy overlay URL</span>
+					<span style="opacity: 0; align-self: center;">Copied to clipboard!</span>
+				</div>
+			</div>
+		</div>
+
+		<dialog id="overlayMenu" class="dialog-modal" noselect>
+			<div style="display: flex;">
+				<h2 style="display: inline;flex-grow: 1;">Overlay:</h2>
+				<r-close-icon id="overlayMenuCloseButton" class="active"></r-close-icon>
+			</div>
+			<div id="overlayMenuInnerBox" class="modal-inner-container" style="flex-grow: 3;">
+				<canvas id="overlayMenuCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+				<div style="display: flex; flex-direction: column; width: 64px; row-gap: 8px; padding: 8px; top: 8px; left: 8px; position: absolute;">
+					<button type="button"><img class="icon-image" src="svg/edit.svg"></button>
+					<button type="button"><img class="icon-image" src="svg/rubber.svg"></button>
+					<button type="button"><img class="icon-image" src="svg/clear.svg"></button>
+				</div>
+			</div>
+			<div style="flex-grow: 1; display: flex; column-gap: 16px;">
+				<div style="flex-grow: 1; display: flex; flex-direction: column; row-gap: 8px;">
+					<h2>Select image:</h2>
+					<input id="overlayInput" type="file" style="width: fit-content;">
+					<h2>Share</h2>
+					<div style="position: relative; display: flex;" title="copy canvas link">
+						<img class="icon-image" src="svg/clipboard.svg">
 						<span style="align-self: center; margin-right: 8px;cursor: pointer;">Copy overlay URL</span>
 						<span style="opacity: 0; align-self: center;">Copied to clipboard!</span>
 					</div>
 				</div>
-			</div>
-			<dialog id="overlayMenu" class="dialog-modal" noselect>
-				<div style="display: flex;">
-					<h2 title="Make use of a canvas overlay image in order to help yourself better position your pixels" style="display: inline;flex-grow: 1;">Overlay:</h2>
-					<r-close-icon id="overlayMenuCloseButton" class="active"></r-close-icon>
-				</div>
-				<div id="overlayMenuInnerBox" class="modal-inner-container" style="flex-grow: 3;">
-					<canvas id="overlayMenuCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
-					<div style="display: flex; flex-direction: column; width: 64px; row-gap: 8px; padding: 8px; top: 8px; left: 8px;  position: absolute;">
-						<button type="button"><img class="icon-image" src="svg/edit.svg"></button>
-						<button type="button"><img class="icon-image" src="svg/rubber.svg"></button>
-						<button type="button"><img class="icon-image" src="svg/clear.svg"></button>
+				<hr>
+				<div style="flex-grow: 1; display: flex; flex-direction: column; row-gap: 8px;">
+					<h2>Adjust image</h2>
+					<h4>Colour matching:</h4>
+					<div>
+						<input type="radio" name="overlayMatch" id="overlayMatchNearest">
+						<label for="overlayMatchNearest">Nearest match</label>
 					</div>
-				</div>
-				<div style="flex-grow: 1; display: flex; column-gap: 16px;">
-					<div style="flex-grow: 1; display: flex; flex-direction: column; row-gap: 8px;">
-						<h2>Select image:</h2>
-						<input id="overlayInput" type="file" style="width: fit-content;">
-						<h2>Share</h2>
-						<div style="position: relative; display: flex;" title="copy canvas link">
-							<img class="icon-image" src="svg/clipboard.svg">
-							<span style="align-self: center; margin-right: 8px;cursor: pointer;">Copy overlay URL</span>
-							<span style="opacity: 0; align-self: center;">Copied to clipboard!</span>
-						</div>
+					<div>
+						<input type="radio" name="overlayMatch" id="overlayMatchIgnore">
+						<label for="overlayMatchIgnore">Ignore invalid colours</label>
 					</div>
-					<hr>
-					<div style="flex-grow: 1; display: flex; flex-direction: column; row-gap: 8px;">
-						<h2>Adjust image</h2>
-						<h4>Colour matching:</h4>
-						<div>
-							<input type="radio" name="overlayMatch" id="overlayMatchNearest">
-							<label for="overlayMatchNearest">Nearest match</label>
-						</div>
-						<div>
-							<input type="radio" name="overlayMatch" id="overlayMatchIgnore">
-							<label for="overlayMatchIgnore">Ignore invalid colours</label>
-						</div>
-						<h4>Image options:</h4>
-						<div>
-							<input type="checkbox" id="overlaySharpen">
-							<label for="overlaySharpen">Sharpen image edges</label>
-						</div>
-						<div>
-							<input type="checkbox" id="overlayFlipX">
-							<label for="overlayFlipX">Flip image X</label>
-						</div>
-						<div>
-							<input type="checkbox" id="overlayFlipY">
-							<label for="overlayFlipY">Flip image Y</label>
-						</div>
-					</div>
-				</div>
-			</dialog>
-			<div id="turnstileMenu" class="toast-menu noselect">
-				<div class="menu-header">
-					<h2>Verifying session...</h2>
-				</div>
-				<div class="menu-body">
-					<p>Don't worry, this process should be automatic!</p><br>
-					<div id="turnstileContainer"></div>
+					<h4>Image options:</h4>
+					<div><input type="checkbox" id="overlaySharpen"><label for="overlaySharpen">Sharpen image edges</label></div>
+					<div><input type="checkbox" id="overlayFlipX"><label for="overlayFlipX">Flip image X</label></div>
+					<div><input type="checkbox" id="overlayFlipY"><label for="overlayFlipY">Flip image Y</label></div>
 				</div>
 			</div>
-			<div id="hCaptchaMenu" class="toast-menu noselect">
-				<div class="menu-header">
-					<h2>Complete captcha</h2>
-				</div>
-				<div class="menu-body">
-					<p>Please complete the below captcha to continue playing the game!</p><br>
-					<div id="hCaptchaContainer"></div>
-					<button type="button" id="hCaptchaSubmitButton">Continue</button>
-				</div>
+		</dialog>
+
+		<div id="turnstileMenu" class="toast-menu noselect">
+			<div class="menu-header"><h2>Verifying session...</h2></div>
+			<div class="menu-body">
+				<p>Don't worry, this process should be automatic!</p><br>
+				<div id="turnstileContainer"></div>
 			</div>
-			<div id="punishmentMenu" class="toast-menu">
-				<div class="menu-header">
-					<h2>Punishment notice:</h2>
-				</div>
-				<div class="menu-body">
-					<p id="punishmentNote"></p>
-					<div class="punishment-notice">
-						<header class="punishment-header">
-							<time id="punishmentStartDate" datetime="1970-01-01T00:00:00"></time>
-							<hr>
-							<time id="punishmentEndDate" datetime="1970-01-01T00:00:00"></time>
-						</header>
-						<div class="punishment-content">
-							<p id="punishmentUserId"></p>
-							<p id="punishmentReason"></p>
-							<p id="punishmentAppeal"></p>
-						</div>
-					</div>
-				</div>
+		</div>
+
+		<div id="hCaptchaMenu" class="toast-menu noselect">
+			<div class="menu-header"><h2>Complete captcha</h2></div>
+			<div class="menu-body">
+				<p>Please complete the below captcha to continue playing the game!</p><br>
+				<div id="hCaptchaContainer"></div>
+				<button type="button" id="hCaptchaSubmitButton">Continue</button>
 			</div>
-			<div id="moderationMenu" noselect="" mode="delete" class="toast-menu">
-				<div class="menu-header">
-					<h2 style="display: inline;flex-grow: 1;">Moderation options:</h2>
-					<r-close-icon id="modCloseButton"></r-close-icon>
-				</div>
-				<div class="menu-body">
-					<h2>Manage:</h2>
-					<div id="modMessageIdForm" class="mod-form">
-						<label>
-							<span>Message ID:</span>
-							<input type="number" id="modMessageId" title="Message ID" placeholder="Enter Message ID">
-						</label>
-						<div id="modMessagePreview">Message not found</div>
+		</div>
+
+		<div id="punishmentMenu" class="toast-menu">
+			<div class="menu-header"><h2>Punishment notice:</h2></div>
+			<div class="menu-body">
+				<p id="punishmentNote"></p>
+				<div class="punishment-notice">
+					<header class="punishment-header">
+						<time id="punishmentStartDate" datetime="1970-01-01T00:00:00"></time>
+						<hr>
+						<time id="punishmentEndDate" datetime="1970-01-01T00:00:00"></time>
+					</header>
+					<div class="punishment-content">
+						<p id="punishmentUserId"></p>
+						<p id="punishmentReason"></p>
+						<p id="punishmentAppeal"></p>
 					</div>
-					<label id="modUserIdForm">
-						User ID:
-						<input type="number" id="modUserId" title="User ID" placeholder="Enter User ID">
-					</label>
-					<h2>Action:</h2>
-					<form id="modActionForm" class="mod-form">
-						<label>
-							<span>Delete message</span>
-							<input type="radio" id="modActionDelete" name="modAction" value="delete">
-						</label>
-						<label>
-							<span>Kick</span>
-							<input type="radio" id="modActionKick" name="modAction" value="kick">
-						</label>
-						<label>
-							<span>Mute</span>
-							<input type="radio" id="modActionMute" name="modAction" value="mute">
-						</label>
-						<label>
-							<span>Ban</span>
-							<input type="radio" id="modActionBan" name="modAction" value="ban">
-						</label>
-						<label>
-							<span>Captcha</span>
-							<input type="radio" id="modActionCaptcha" name="modAction" value="captcha">
-						</label>
-					</form>
-					<div id="modDuration">
-						<input id="modDurationH" type="number" style="display: inline;height: auto;width: 80px;" placeholder="Hours" min="0">
-						<span>:</span>
-						<input id="modDurationM" type="number" style="display: inline;height: auto;width: 80px;" placeholder="Minutes" min="0">
-						<span>:</span>
-						<input id="modDurationS" type="number" style="display: inline;height: auto;width: 80px;" placeholder="Seconds" min="1">
-					</div>
-					<div id="modAffectsAllForm" class="mod-form">
-						<div>
-							<input type="checkbox" id="modAffectsAll" style="height: auto; width: 12px;" value="affectsall" />
-							<label for="modAffectsAll">Apply to all players</label>
-						</div>
-					</div>
-					<em>All moderation actions are logged by the server and reports sent to all other staff. Follow the moderation rules. Do not abuse power.</em>
-					<input id="modReason" type="text" placeholder="Reason">
-					<div style="display: flex; column-gap: 8px;">
-						<button type="button" style="flex-grow: 1;" id="modOptionsButton" disabled="true">Submit</button>
-						<button type="button" id="modCancelButton" style="flex-grow: 1;">Cancel</button>
-					</div>
-				</div>
-			</div>
-			<dialog id="captchaPopup" class="modal">
-				<div>
-					<canvas id="captchaCanvas" width="500" height="800"></canvas>
-					<h1 noselect style="color: grey;">🤔 Sorry for interrupting, but</h1>
-					<p noselect translate="captchaPrompt"><em>Solve this small captcha to help keep rplace.live fun for all...</em></p>
-					<hr>
-					<h2 id="captchaLabel">Please click the button containing the emoji you see below</h2>
-					<div id="captchaImagePosition"></div>
-					<a style="text-align: center;" href=".">(generate new captcha)</a>
-					<div id="captchaOptions"></div>
-				</div>
-			</dialog>
-			<dialog id="popup">
-				<div>
-					<r-close-icon id="popupCloseButton"></r-close-icon>
-					<span noselect id="popupTitle" style="font-size: 1.2em; font-weight: bold;"></span>
-					<iframe id="popupEmbed"></iframe>
-				</div>
-			</dialog>
-			
-			<dialog id="modal" class="modal about-modal" style="background: #2b2b36; color: white; border: 1px solid #444; border-radius: 15px;">
-				<div class="modal-header" style="border-bottom: 1px solid #444;">
-					<h2 style="color: #ff4500; margin: 0;">ARplace</h2>
-					<r-close-icon id="modalCloseButton" style="fill: white; cursor: pointer;"></r-close-icon>
-				</div>
-				<div class="modal-content" style="font-size: 15px; line-height: 1.5; padding: 20px;">
-					Boş bir tuval var.<br><br>
-					Üzerine renkli bir piksel koyabilirsiniz ama yenisini yerleştirmek için beklemeniz gerekir.<br><br>
-					Tek başınıza bir şeyler yapabilirsiniz.<br><br>
-					Topluluk ile daha fazlasını yapabilirsiniz.<br><br>
-					
-					<a href="https://www.instagram.com/ymirtap?igsh=MWFxYXBzY2F5czk4bw==" target="_blank" style="display: flex; align-items: center; gap: 10px; background: #1e1e24; padding: 10px 15px; border-radius: 50px; text-decoration: none; color: white; margin-bottom: 10px; border: 1px solid #444; transition: 0.2s;">
-						<img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram" style="width:24px; height:24px;"> ymirtap
-					</a>
-					<a href="https://www.tiktok.com/@_ymirart_?_r=1&_t=ZS-95hs8HjmxBx" target="_blank" style="display: flex; align-items: center; gap: 10px; background: #1e1e24; padding: 10px 15px; border-radius: 50px; text-decoration: none; color: white; border: 1px solid #444; transition: 0.2s;">
-						<img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" alt="TikTok" style="width:24px; height:24px;"> _ymirart_
-					</a>
-				</div>
-				
-				<div class="modal-footer" style="border-top: 1px solid #444; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
-					<div style="font-size: 14px; color: #aaa; font-weight: bold;">© Kerem.K</div>
-					<button type="button" id="muteBtnCapsule" title="Sesi Aç/Kapat" style="display: inline-flex; align-items: center; justify-content: center; background: white; border-radius: 50px; width: 44px; height: 44px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-						<svg id="soundIconOn" style="width:22px; height:22px; display:block;" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-						<svg id="soundIconOff" style="width:22px; height:22px; display:none;" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.09V4z"/></svg>
-					</button>
-				</div>
-			</dialog>
-			
-			<dialog id="secretSettingsDialog" class="modal">
-				<div class="modal-header">
-					<h2>Secret settings:</h2>
-					<r-close-icon id="secretSettingsCloseButton"></r-close-icon>	
-				</div>
-				<div class="modal-content">
-					<p>Here you can find experimental site settings.</p>
-					<br>
-					<p>Be warned.. tinkering here may break things!</p>
-				</div>
-				<div style="display: flex; flex-direction: column; row-gap: 4px;">
-					<h3>Secret settings:</h3>
-					<label>
-						<span>Palette select sound:</span>
-						<select id="paletteSoundSelect">
-							<option value="default">Default</option>
-							<option value="piano">Piano</option>
-							<option value="bell">Bell</option>
-						</select>
-					</label>
-					<label>
-						<span>Enable melodic palette:</span>
-						<input type="checkbox" id="enableMelodicPaletteCheckbox" style="height: min-content;">
-					</label>
-					<hr>
-					<h3>Experimental settings:</h3>
-					<label>
-						<span>Enable WebGL Canvas:</span>
-						<input type="checkbox" id="enableWebglCanvasCheckbox" style="height: min-content;">
-					</label>
-					<label>
-						<span>Enable new overlay menu:</span>
-						<input type="checkbox" id="enableNewOverlayMenuCheckbox" style="height: min-content;">
-					</label>
-					<hr>
-					<details>
-						<summary><h3 style="display: inline;">Edit local storage:</h3></summary>
-						<r-edit-list id="editLocalStorageList"></r-edit-list>	
-					</details>
-				</div>
-			</dialog>
-			<div id="palette" style="transform: translateY(100%)" noselect>
-				<div style="position: relative;">
-					<div id="canvasLock" style="display: none;">
-						<img src="svg/lock.svg" class="icon-image" style="width: 36px;">
-						<span id="lockMessageLabel" translate="lockMessage">This canvas is locked... You can't place pixels here anymore</span>
-					</div>
-					<div id="colours"></div>
-				</div>
-				<div class="buttons">
-					<button type="button" id="pcancel" class="pcancel" title="Cancel">
-						<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" data-name="icons final" viewBox="0 0 20 20">
-							<path d="M18.442 2.442l-.884-.884L10 9.116 2.442 1.558l-.884.884L9.116 10l-7.558 7.558.884.884L9.116 10l-7.558 7.558.884.884L10 10.884l7.558 7.558.884-.884L10.884 10l7.558-7.558z"></path>
-						</svg>
-					</button>
-					<button type="button" id="pok" class="pok" title="Confirm place pixel">
-						<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" data-name="icons final" viewBox="0 0 20 20">
-							<path d="M7.5 15.583a.72.72 0 01-.513-.212L1.558 9.942l.884-.884L7.5 14.116 18.058 3.558l.884.884L8.013 15.371a.72.72 0 01-.513.212z"></path>
-						</svg>
-					</button>
 				</div>
 			</div>
 		</div>
-		<div id="more">
-			<button type="button" id="spaceFiller" title="Back to game"></button>
-			<iframe id="postsFrame" title="posts" frameborder="0" scrolling="no"></iframe>
+
+		<div id="moderationMenu" noselect="" mode="delete" class="toast-menu">
+			<div class="menu-header">
+				<h2 style="display: inline;flex-grow: 1;">Moderation options:</h2>
+				<r-close-icon id="modCloseButton"></r-close-icon>
+			</div>
+			<div class="menu-body">
+				<h2>Manage:</h2>
+				<div id="modMessageIdForm" class="mod-form">
+					<label>
+						<span>Message ID:</span>
+						<input type="number" id="modMessageId" title="Message ID" placeholder="Enter Message ID">
+					</label>
+					<div id="modMessagePreview">Message not found</div>
+				</div>
+				<label id="modUserIdForm">
+					User ID:
+					<input type="number" id="modUserId" title="User ID" placeholder="Enter User ID">
+				</label>
+				<h2>Action:</h2>
+				<form id="modActionForm" class="mod-form">
+					<label><span>Delete message</span><input type="radio" id="modActionDelete" name="modAction" value="delete"></label>
+					<label><span>Kick</span><input type="radio" id="modActionKick" name="modAction" value="kick"></label>
+					<label><span>Mute</span><input type="radio" id="modActionMute" name="modAction" value="mute"></label>
+					<label><span>Ban</span><input type="radio" id="modActionBan" name="modAction" value="ban"></label>
+					<label><span>Captcha</span><input type="radio" id="modActionCaptcha" name="modAction" value="captcha"></label>
+				</form>
+				<div id="modDuration">
+					<input id="modDurationH" type="number" style="display: inline;height: auto;width: 80px;" placeholder="Hours" min="0">
+					<span>:</span>
+					<input id="modDurationM" type="number" style="display: inline;height: auto;width: 80px;" placeholder="Minutes" min="0">
+					<span>:</span>
+					<input id="modDurationS" type="number" style="display: inline;height: auto;width: 80px;" placeholder="Seconds" min="1">
+				</div>
+				<div id="modAffectsAllForm" class="mod-form">
+					<div>
+						<input type="checkbox" id="modAffectsAll" style="height: auto; width: 12px;" value="affectsall" />
+						<label for="modAffectsAll">Apply to all players</label>
+					</div>
+				</div>
+				<em>All moderation actions are logged by the server and reports sent to all other staff. Follow the moderation rules. Do not abuse power.</em>
+				<input id="modReason" type="text" placeholder="Reason">
+				<div style="display: flex; column-gap: 8px;">
+					<button type="button" style="flex-grow: 1;" id="modOptionsButton" disabled="true">Submit</button>
+					<button type="button" id="modCancelButton" style="flex-grow: 1;">Cancel</button>
+				</div>
+			</div>
 		</div>
-		<div id="eventCountdown">
-			<div class="announcer">
-				<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-300 -300 600 600" width="48" height="40">
-					<circle r="292.3"></circle>
-					<g style="fill:#f1cd43" transform="scale(0.9783764)">
-						<circle r="50"></circle>
-						<path d="M75,0A75,75 0 0,0 37.5-64.951905L125-216.50635A250,250 0 0,1 250,0Z" id="bld"></path>
-						<use xlink:href="#bld" transform="rotate(120)"></use>
-						<use xlink:href="#bld" transform="rotate(240)"></use>
-					</g>
+
+		<dialog id="captchaPopup" class="modal">
+			<div>
+				<canvas id="captchaCanvas" width="500" height="800"></canvas>
+				<h1 noselect style="color: grey;">🤔 Sorry for interrupting, but</h1>
+				<p noselect translate="captchaPrompt"><em>Solve this small captcha to help keep rplace.live fun for all...</em></p>
+				<hr>
+				<h2 id="captchaLabel">Please click the button containing the emoji you see below</h2>
+				<div id="captchaImagePosition"></div>
+				<a style="text-align: center;" href=".">(generate new captcha)</a>
+				<div id="captchaOptions"></div>
+			</div>
+		</dialog>
+
+		<dialog id="popup">
+			<div>
+				<r-close-icon id="popupCloseButton"></r-close-icon>
+				<span noselect id="popupTitle" style="font-size: 1.2em; font-weight: bold;"></span>
+				<iframe id="popupEmbed"></iframe>
+			</div>
+		</dialog>
+
+		<!-- =============================================
+		     HAKKINDA MODALİ — DÜZENLENMİŞ
+		     ============================================= -->
+		<dialog id="modal" class="modal about-modal">
+			<div class="modal-header">
+				<h2>Arplace</h2>
+				<r-close-icon id="modalCloseButton"></r-close-icon>
+			</div>
+			<div class="modal-content" translate="modalAboutContent">
+				Boş bir tuval var.<br><br>
+				Üzerine renkli bir piksel koyabilirsiniz ama yenisini yerleştirmek için beklemeniz gerekir.<br><br>
+				Tek başınıza bir şeyler yapabilirsiniz.<br><br>
+				Topluluk ile daha fazlasını yapabilirsiniz.<br><br>
+			</div>
+
+			<!-- Sosyal medya linkleri -->
+			<div class="modal-social-divider"></div>
+			<a href="https://www.instagram.com/ymirtap?igsh=MWFxYXBzY2F5czk4bw==" target="_blank" rel="noopener" class="modal-social-row">
+				<!-- Instagram SVG -->
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<defs>
+						<radialGradient id="ig-grad" cx="30%" cy="107%" r="150%">
+							<stop offset="0%" stop-color="#fdf497"/>
+							<stop offset="5%" stop-color="#fdf497"/>
+							<stop offset="45%" stop-color="#fd5949"/>
+							<stop offset="60%" stop-color="#d6249f"/>
+							<stop offset="90%" stop-color="#285AEB"/>
+						</radialGradient>
+					</defs>
+					<rect width="24" height="24" rx="6" fill="url(#ig-grad)"/>
+					<circle cx="12" cy="12" r="4.2" stroke="white" stroke-width="1.8" fill="none"/>
+					<circle cx="17.2" cy="6.8" r="1.1" fill="white"/>
 				</svg>
-				<div class="countdown countdown-header">SPECIAL EVENT</div>
+				<span>ymirtap</span>
+			</a>
+			<a href="https://www.tiktok.com/@_ymirart_?_r=1&_t=ZS-95hs8HjmxBx" target="_blank" rel="noopener" class="modal-social-row">
+				<!-- TikTok SVG -->
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<rect width="24" height="24" rx="6" fill="#010101"/>
+					<path d="M17 8.5c-1.1 0-2-.9-2-2V4h-2.5v11.5c0 1-.8 1.8-1.8 1.8s-1.8-.8-1.8-1.8.8-1.8 1.8-1.8c.2 0 .4 0 .5.1V11.2c-.2 0-.4-.1-.6-.1-2.3 0-4.2 1.9-4.2 4.2s1.9 4.2 4.2 4.2 4.2-1.9 4.2-4.2V10c.8.5 1.7.9 2.7.9V8.5H17z" fill="white"/>
+				</svg>
+				<span>_ymirart_</span>
+			</a>
+			<div class="modal-social-divider"></div>
+
+			<!-- © Kerem.K (gizli ayarlar butonu) -->
+			<button id="modalCopyrightButton" type="button" title="Open secret settings" class="modal-content copyright-label">
+				© Kerem.K
+			</button>
+
+			<!-- Footer -->
+			<div class="modal-footer">
+				<img noselect="" alt="Arplace Logo" height="40" width="40" src="images/rplace.png" style="position: absolute;left: 50%;transform: translateX(-50%);opacity: 0.2;">
+
+				<!-- SES BUTONU (kapsül) -->
+				<button type="button" id="muteButton" noselect class="modal-footer-button" title="Sesi aç/kapat">
+					<!-- Ses açık ikonu -->
+					<svg id="soundIconOn" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="display:block;">
+						<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+					</svg>
+					<!-- Ses kapalı ikonu -->
+					<svg id="soundIconOff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+						<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+					</svg>
+					<span id="muteButtonLabel">Ses</span>
+				</button>
+
+				<!-- TEMA SEÇİCİ -->
+				<div id="themeDropParent" noselect class="modal-footer-button" style="width: auto; align-items: center;justify-content: center;">
+					<span style="white-space: nowrap;" id="themeDropName">🖌️ r/place 2022</span>
+					<svg class="icon-image" style="vertical-align: bottom;" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24">
+						<path d="M480-345 240-585l43-43 197 198 197-197 43 43-240 239Z"></path>
+					</svg>
+					<div id="themeDrop" style="top: 40px;" class="context-menu">
+						<menu>
+							<li theme="r/place 2022" variant=""><button type="button">r/place 2022 (Classic)</button></li>
+							<li theme="r/place 2022" variant="dark"><button type="button">r/place 2022 (Dark)</button></li>
+							<li theme="r/place 2023" variant=""><button type="button">r/place 2023 (Classic)</button></li>
+							<hr style="opacity: 0.2">
+							<li theme="r/place 2022" variant="dark" effects="darkplace"><button type="button">darkplace.live (April fools)</button></li>
+							<li theme="r/place 2022" variant="" effects="winter"><button type="button">snowplace.live (December 2023)</button></li>
+							<li theme="r/place 2022" variant="merry" effects="winter"><button type="button">merryplace.live (December 2024)</button></li>
+						</menu>
+					</div>
+				</div>
+			</div>
+		</dialog>
+
+		<!-- GİZLİ AYARLAR -->
+		<dialog id="secretSettingsDialog" class="modal">
+			<div class="modal-header">
+				<h2>Secret settings:</h2>
+				<r-close-icon id="secretSettingsCloseButton"></r-close-icon>
+			</div>
+			<div class="modal-content">
+				<p>Here you can find experimental site settings.</p>
+				<br>
+				<p>Be warned.. tinkering here may break things!</p>
+			</div>
+			<div style="display: flex; flex-direction: column; row-gap: 4px;">
+				<h3>Secret settings:</h3>
+				<label>
+					<span>Palette select sound:</span>
+					<select id="paletteSoundSelect">
+						<option value="default">Default</option>
+						<option value="piano">Piano</option>
+						<option value="bell">Bell</option>
+					</select>
+				</label>
+				<label>
+					<span>Enable melodic palette:</span>
+					<input type="checkbox" id="enableMelodicPaletteCheckbox" style="height: min-content;">
+				</label>
+				<hr>
+				<h3>Experimental settings:</h3>
+				<label>
+					<span>Enable WebGL Canvas:</span>
+					<input type="checkbox" id="enableWebglCanvasCheckbox" style="height: min-content;">
+				</label>
+				<label>
+					<span>Enable new overlay menu:</span>
+					<input type="checkbox" id="enableNewOverlayMenuCheckbox" style="height: min-content;">
+				</label>
+				<hr>
+				<details>
+					<summary><h3 style="display: inline;">Edit local storage:</h3></summary>
+					<r-edit-list id="editLocalStorageList"></r-edit-list>
+				</details>
+			</div>
+		</dialog>
+
+		<!-- RENK PALETİ -->
+		<div id="palette" style="transform: translateY(100%)" noselect>
+			<div style="position: relative;">
+				<div id="canvasLock" style="display: none;">
+					<img src="svg/lock.svg" class="icon-image" style="width: 36px;">
+					<span id="lockMessageLabel" translate="lockMessage">Bu tuval kilitlendi... Artık piksel koyamazsınız</span>
+				</div>
+				<div id="colours"></div>
+			</div>
+			<div class="buttons">
+				<button type="button" id="pcancel" class="pcancel" title="İptal">
+					<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" data-name="icons final" viewBox="0 0 20 20">
+						<path d="M18.442 2.442l-.884-.884L10 9.116 2.442 1.558l-.884.884L9.116 10l-7.558 7.558.884.884L10 10.884l7.558 7.558.884-.884L10.884 10l7.558-7.558z"></path>
+					</svg>
+				</button>
+				<button type="button" id="pok" class="pok" title="Pikseli Onayla">
+					<svg class="icon-image" xmlns="http://www.w3.org/2000/svg" data-name="icons final" viewBox="0 0 20 20">
+						<path d="M7.5 15.583a.72.72 0 01-.513-.212L1.558 9.942l.884-.884L7.5 14.116 18.058 3.558l.884.884L8.013 15.371a.72.72 0 01-.513.212z"></path>
+					</svg>
+				</button>
 			</div>
 		</div>
-	</body>
+	</div>
+
+	<div id="more">
+		<button type="button" id="spaceFiller" title="Back to game"></button>
+		<iframe id="postsFrame" title="posts" frameborder="0" scrolling="no"></iframe>
+	</div>
+
+	<div id="eventCountdown">
+		<div class="announcer">
+			<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-300 -300 600 600" width="48" height="40">
+				<circle r="292.3"></circle>
+				<g style="fill:#f1cd43" transform="scale(0.9783764)">
+					<circle r="50"></circle>
+					<path d="M75,0A75,75 0 0,0 37.5-64.951905L125-216.50635A250,250 0 0,1 250,0Z" id="bld"></path>
+					<use xlink:href="#bld" transform="rotate(120)"></use>
+					<use xlink:href="#bld" transform="rotate(240)"></use>
+				</g>
+			</svg>
+			<div class="countdown countdown-header">SPECIAL EVENT</div>
+		</div>
+	</div>
+
+	<!-- =============================================
+	     ARPLACE — ANA SCRIPT
+	     ============================================= -->
+	<script>
+	(function() {
+		// =============================================
+		// SUPABASE AYARLARI — KENDİ BİLGİLERİNİZİ GİRİN
+		// =============================================
+		const SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // ← Supabase proje URL'niz
+		const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY'; // ← Supabase anon key
+
+		// Supabase hazır olduğunda başlat
+		function initArplace() {
+			if (!window.supabase) {
+				setTimeout(initArplace, 100);
+				return;
+			}
+			const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+			// Global session nesnesi — game-state.js buradan okur
+			window.arplaceSession = {
+				token: null,
+				username: null,
+				role: null,      // 'user' | 'vip' | 'admin'
+				userId: null,
+				cooldownMs: 1000,
+				freeMode: false,
+				db: db
+			};
+
+			// =============================================
+			// BİLDİRİM SİSTEMİ
+			// =============================================
+			function showToast(message, type /* 'success' | 'error' */, duration = 3000) {
+				const container = document.getElementById('notificationContainer');
+				const toast = document.createElement('div');
+				toast.className = 'arplace-toast ' + type;
+				toast.textContent = message;
+				container.appendChild(toast);
+				setTimeout(() => {
+					toast.style.opacity = '0';
+					toast.style.transition = 'opacity 0.3s';
+					setTimeout(() => toast.remove(), 300);
+				}, duration);
+			}
+
+			// =============================================
+			// TOKEN GİRİŞ SİSTEMİ
+			// =============================================
+			async function loginWithToken(token) {
+				if (!token || token.trim().length < 4) {
+					showToast('❌ Geçersiz token formatı.', 'error');
+					return;
+				}
+				try {
+					const { data, error } = await db
+						.from('profiles')
+						.select('id, username, role, cooldown_ms, created_at')
+						.eq('access_token', token.trim())
+						.single();
+
+					if (error || !data) {
+						showToast('❌ Başarısız giriş. Token bulunamadı.', 'error');
+						return;
+					}
+
+					// Oturumu kaydet
+					const session = {
+						token: token.trim(),
+						username: data.username,
+						role: data.role,
+						userId: data.id,
+						cooldownMs: data.cooldown_ms,
+						joinDate: data.created_at
+					};
+					localStorage.setItem('arplace_session', JSON.stringify(session));
+					applySession(session);
+
+					// Rol bazlı bildirim
+					const roleMsg = {
+						user:  '✅ Başarıyla üye girişi yapıldı!',
+						vip:   '⭐ Başarıyla VIP girişi yapıldı!',
+						admin: '🔐 Başarıyla Admin girişi yapıldı!'
+					};
+					showToast(roleMsg[data.role] || '✅ Giriş başarılı!', 'success');
+					closeProfilePanel();
+				} catch(e) {
+					showToast('❌ Bağlantı hatası. Tekrar deneyin.', 'error');
+				}
+			}
+
+			function logout() {
+				localStorage.removeItem('arplace_session');
+				window.arplaceSession.token    = null;
+				window.arplaceSession.username = null;
+				window.arplaceSession.role     = null;
+				window.arplaceSession.userId   = null;
+				window.arplaceSession.freeMode = false;
+				updateProfileUI(null);
+				closeProfilePanel();
+				showToast('👋 Çıkış yapıldı.', 'success', 2000);
+			}
+
+			function applySession(session) {
+				window.arplaceSession.token     = session.token;
+				window.arplaceSession.username  = session.username;
+				window.arplaceSession.role      = session.role;
+				window.arplaceSession.userId    = session.userId;
+				window.arplaceSession.cooldownMs= session.cooldownMs;
+				updateProfileUI(session);
+			}
+
+			// =============================================
+			// PROFİL UI GÜNCELLEME
+			// =============================================
+			function updateProfileUI(session) {
+				const profileBtn     = document.getElementById('profilebtn');
+				const loginSection   = document.getElementById('profileLoginSection');
+				const userSection    = document.getElementById('profileUserSection');
+				const usernameEl     = document.getElementById('profileUsername');
+				const roleBadge      = document.getElementById('profileRoleBadge');
+				const avatarEl       = document.getElementById('profileAvatar');
+				const joinDateEl     = document.getElementById('profileJoinDate');
+				const adminBtn       = document.getElementById('adminPanelBtn');
+				const freeToggle     = document.getElementById('freeModeToggle');
+
+				if (!session) {
+					profileBtn.classList.remove('logged-in');
+					loginSection.style.display = 'flex';
+					userSection.classList.remove('visible');
+					freeToggle.style.display = 'none';
+					return;
+				}
+
+				profileBtn.classList.add('logged-in');
+				loginSection.style.display = 'none';
+				userSection.classList.add('visible');
+
+				usernameEl.textContent = session.username || 'Kullanıcı';
+				avatarEl.textContent   = (session.username || '?')[0].toUpperCase();
+
+				// Rol rozeti
+				const roleLabels = { user: 'Üye', vip: '⭐ VIP', admin: '🔐 Admin' };
+				roleBadge.textContent = roleLabels[session.role] || session.role;
+				roleBadge.className   = 'profileRoleBadge ' + (session.role || 'user');
+
+				// Katılma tarihi
+				if (session.joinDate) {
+					joinDateEl.textContent = new Date(session.joinDate).toLocaleDateString('tr-TR');
+				}
+
+				// Admin paneli butonu
+				adminBtn.style.display = (session.role === 'admin') ? 'flex' : 'none';
+
+				// Serbest mod toggle (VIP ve Admin için)
+				if (session.role === 'vip' || session.role === 'admin') {
+					freeToggle.style.display = 'flex';
+				} else {
+					freeToggle.style.display = 'none';
+				}
+
+				// Piksel sayısını güncelle (async)
+				updatePixelCount(session.userId);
+			}
+
+			async function updatePixelCount(userId) {
+				if (!userId) return;
+				try {
+					const { count } = await db
+						.from('pixels')
+						.select('*', { count: 'exact', head: true })
+						.eq('user_id', userId);
+					const el = document.getElementById('profilePixelCount');
+					if (el) el.textContent = count || 0;
+				} catch(e) {}
+			}
+
+			// =============================================
+			// PROFİL PANELİ AÇMA/KAPAMA
+			// =============================================
+			function openProfilePanel() {
+				document.getElementById('profilePanel').classList.add('visible');
+				document.getElementById('profileOverlay').classList.add('visible');
+			}
+			function closeProfilePanel() {
+				document.getElementById('profilePanel').classList.remove('visible');
+				document.getElementById('profileOverlay').classList.remove('visible');
+			}
+
+			document.getElementById('profilebtn').addEventListener('click', function(e) {
+				e.stopPropagation();
+				const panel = document.getElementById('profilePanel');
+				if (panel.classList.contains('visible')) {
+					closeProfilePanel();
+				} else {
+					openProfilePanel();
+				}
+			});
+			document.getElementById('profileOverlay').addEventListener('click', closeProfilePanel);
+
+			// Token giriş butonu
+			document.getElementById('tokenLoginBtn').addEventListener('click', function() {
+				const token = document.getElementById('tokenInput').value;
+				loginWithToken(token);
+			});
+			document.getElementById('tokenInput').addEventListener('keydown', function(e) {
+				if (e.key === 'Enter') {
+					loginWithToken(this.value);
+				}
+			});
+
+			// Çıkış yap
+			document.getElementById('profileLogoutBtn').addEventListener('click', logout);
+
+			// Admin paneli butonu
+			document.getElementById('adminPanelBtn').addEventListener('click', function() {
+				window.open('admin.html', '_blank');
+				closeProfilePanel();
+			});
+
+			// =============================================
+			// SERBEST MOD TOGGLE
+			// =============================================
+			document.getElementById('freeModeToggle').addEventListener('click', function() {
+				window.arplaceSession.freeMode = !window.arplaceSession.freeMode;
+				this.classList.toggle('active', window.arplaceSession.freeMode);
+				document.getElementById('freeModeLabel').textContent =
+					window.arplaceSession.freeMode ? 'SERBEST ✓' : 'SERBEST';
+				showToast(
+					window.arplaceSession.freeMode
+						? '🖌️ Serbest mod açık — renk seçince direkt koyar!'
+						: '🛑 Serbest mod kapalı.',
+					'success', 2000
+				);
+			});
+
+			// =============================================
+			// SES BUTONU (inline SVG ile)
+			// =============================================
+			const muteBtn = document.getElementById('muteButton');
+			const iconOn  = document.getElementById('soundIconOn');
+			const iconOff = document.getElementById('soundIconOff');
+			let isMuted   = (localStorage.getItem('arplace_muted') === 'true');
+
+			function applyMuteState() {
+				iconOn.style.display  = isMuted ? 'none' : 'block';
+				iconOff.style.display = isMuted ? 'block' : 'none';
+				document.getElementById('muteButtonLabel').textContent = isMuted ? 'Sessiz' : 'Ses';
+			}
+			applyMuteState();
+
+			muteBtn.addEventListener('click', function() {
+				isMuted = !isMuted;
+				localStorage.setItem('arplace_muted', isMuted);
+				applyMuteState();
+				// Orijinal mute olayını tetikle (game-state.js dinleyebilir)
+				window.dispatchEvent(new CustomEvent('arplace_mute_changed', { detail: { muted: isMuted } }));
+			});
+
+			// =============================================
+			// SAYFA YÜKLENINCE OTURUMU GERİ YÜKLE
+			// =============================================
+			const savedSession = localStorage.getItem('arplace_session');
+			if (savedSession) {
+				try {
+					const parsed = JSON.parse(savedSession);
+					applySession(parsed);
+				} catch(e) {
+					localStorage.removeItem('arplace_session');
+				}
+			}
+		}
+
+		// DOM hazır olunca başlat
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initArplace);
+		} else {
+			initArplace();
+		}
+	})();
+	</script>
+</body>
 </html>
