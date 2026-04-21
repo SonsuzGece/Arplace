@@ -28,12 +28,8 @@ export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 export async function makeServerRequest() { return null; }
 
-// --- SERBEST MOD ---
-let isFreeMode = false;       // Serbest mod açık mı?
-let isPickingColor = false;   // Şu an renk seçme ekranında mıyız?
-let selectedColorIndex = 0;   // Seçili renk indexi
-let isPainting = false;
-let lastPaintedPos = -1;
+let isFreeMode = false;
+let selectedColorIndex = 0;
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -49,7 +45,6 @@ export function connect(device, server = "", vip = undefined) {
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // Verileri Çek
     supabase.from('pixels').select('*').then(({ data }) => {
         if (data) {
             data.forEach(p => {
@@ -61,7 +56,6 @@ export function connect(device, server = "", vip = undefined) {
         }
     });
 
-    // Canlı Takip
     supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
         const p = payload.new;
         if (p) {
@@ -72,155 +66,61 @@ export function connect(device, server = "", vip = undefined) {
         }
     }).subscribe();
 
-    // ==========================================
-    // SERBEST MOD MANTIĞI
-    // ==========================================
-    const freeBtn        = document.getElementById("freeModeToggle");
-    const viewport       = document.getElementById("viewport");
-    const coloursContainer = document.getElementById("colours");
-    const paletteDiv     = document.getElementById("palette");
-    const pokBtn         = document.getElementById("pok");
-    const pcancelBtn     = document.getElementById("pcancel");
+    // ==============================
+    // SERBEST MOD - MİNİMUM MÜDAHALE
+    // ==============================
+    const freeBtn = document.getElementById("freeModeToggle");
+    const viewport = document.getElementById("viewport");
 
-    function openPalette() {
-        isPickingColor = true;
-        if (paletteDiv)  paletteDiv.style.transform = "translateY(0)";
-        if (pokBtn)      pokBtn.style.display = "none";
-        if (pcancelBtn)  pcancelBtn.style.display = "none";
-        // Şu an seçili rengi işaretle
-        if (coloursContainer) {
-            Array.from(coloursContainer.children).forEach((c, i) => {
-                c.style.outline = i === selectedColorIndex ? "3px solid white" : "";
-            });
+    // Renk seçimi: oyunun kendi "colours" click olayı zaten çalışıyor
+    // Biz sadece hangi indexin seçildiğini takip ediyoruz, dokunmuyoruz
+    document.addEventListener("click", (e) => {
+        const coloursContainer = document.getElementById("colours");
+        if (!coloursContainer) return;
+        const children = Array.from(coloursContainer.children);
+        let target = e.target;
+        while (target && target !== document.body) {
+            const index = children.indexOf(target);
+            if (index !== -1) {
+                selectedColorIndex = index;
+                break;
+            }
+            target = target.parentNode;
         }
-    }
+    });
 
-    function closePalette() {
-        isPickingColor = false;
-        if (paletteDiv)  paletteDiv.style.transform = "translateY(100%)";
-        if (pokBtn)      pokBtn.style.display = "";
-        if (pcancelBtn)  pcancelBtn.style.display = "";
-    }
-
-    // 1. Serbest Mod Butonu: her basışta paleti aç (renk seçmek için)
+    // Serbest Mod Aç/Kapat
     if (freeBtn) {
         freeBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (!isFreeMode) {
-                // Modu aç + paleti göster
-                isFreeMode = true;
-                freeBtn.classList.add("active");
-                openPalette();
-            } else {
-                // Mod zaten açıksa → paleti aç (renk değiştirmek için)
-                openPalette();
-            }
+            isFreeMode = !isFreeMode;
+            freeBtn.classList.toggle("active", isFreeMode);
+            freeBtn.style.background = isFreeMode ? "#4CAF50" : "";
         });
     }
 
-    // 2. Renk Seçimi: renge basınca seç ve paleti kapat
-    if (coloursContainer) {
-        coloursContainer.addEventListener("pointerdown", (e) => {
-            if (!isFreeMode || !isPickingColor) return;
-
-            const children = Array.from(coloursContainer.children);
-            let target = e.target;
-            while (target && target !== coloursContainer) {
-                const index = children.indexOf(target);
-                if (index !== -1) {
-                    // Rengi seç
-                    selectedColorIndex = index;
-                    children.forEach(c => c.style.outline = "");
-                    children[index].style.outline = "3px solid white";
-                    // Paleti kapat
-                    closePalette();
-                    e.stopImmediatePropagation();
-                    e.preventDefault();
-                    break;
-                }
-                target = target.parentNode;
-            }
-        }, { capture: true });
-    }
-
-    // 3. Canvas koordinatı hesapla
-    function getPixelCoord(e) {
-        const canvas = document.querySelector("canvas");
-        if (canvas) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.clientX ?? e.touches?.[0]?.clientX;
-            const clientY = e.clientY ?? e.touches?.[0]?.clientY;
-            if (clientX != null) {
-                const px = Math.floor((clientX - rect.left) * (canvas.width / rect.width));
-                const py = Math.floor((clientY - rect.top)  * (canvas.height / rect.height));
-                if (px >= 0 && py >= 0 && px < WIDTH && py < HEIGHT) return { x: px, y: py };
-            }
-        }
-        // Fallback
-        const text  = document.getElementById("positionIndicator")?.innerText ?? "";
-        const match = text.match(/\((\d+),\s*(\d+)\)/);
-        if (!match) return null;
-        return { x: parseInt(match[1]), y: parseInt(match[2]) };
-    }
-
-    // 4. Boyama
-    function paintPixel(e) {
-        const coord = getPixelCoord(e);
-        if (!coord) return;
-        const pos = coord.x + coord.y * WIDTH;
-        if (lastPaintedPos === pos) return;
-        lastPaintedPos = pos;
-        sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
-    }
-
-    // 5. Viewport olayları
+    // Canvas'a tıklanınca: serbest moddaysa positionIndicator'dan koordinat al ve boya
+    // stopImmediatePropagation YOK - oyunun kendi olaylarına dokunmuyoruz
+    // Sadece viewport'un pointerdown'unu dinleyip koordinat okuyoruz
     if (viewport) {
-        // Renk seçme modundayken viewport'a basma → paleti kapat
         viewport.addEventListener("pointerdown", (e) => {
             if (!isFreeMode) return;
 
-            if (isPickingColor) {
-                // Paletten değil canvas'a bastı → paleti kapat, boyama
-                closePalette();
-                e.stopImmediatePropagation();
-                e.preventDefault();
-                isPainting = true;
-                lastPaintedPos = -1;
-                paintPixel(e);
-                return;
-            }
-
-            // Normal boyama modu
+            // Oyunun kendi click/pointerdown olayını engelle (sadece serbest moddayken)
             e.stopImmediatePropagation();
             e.preventDefault();
-            isPainting = true;
-            lastPaintedPos = -1;
-            paintPixel(e);
-        }, { capture: true });
 
-        viewport.addEventListener("pointermove", (e) => {
-            if (!isFreeMode || !isPainting || isPickingColor) return;
-            e.stopImmediatePropagation();
-            e.preventDefault();
-            paintPixel(e);
-        }, { capture: true });
-
-        // click olayını da engelle (oyunun kendi palet açmasını önler)
-        viewport.addEventListener("click", (e) => {
-            if (!isFreeMode) return;
-            e.stopImmediatePropagation();
-            e.preventDefault();
-        }, { capture: true });
+            // positionIndicator güncellenmesi için kısa bekle
+            setTimeout(() => {
+                const text = document.getElementById("positionIndicator")?.innerText ?? "";
+                const match = text.match(/\((\d+),\s*(\d+)\)/);
+                if (!match) return;
+                const x = parseInt(match[1]);
+                const y = parseInt(match[2]);
+                sendServerMessage("putPixel", { position: x + y * WIDTH, colour: selectedColorIndex });
+            }, 50);
+        });
     }
-
-    window.addEventListener("pointerup", () => {
-        isPainting = false;
-        lastPaintedPos = -1;
-    });
-    window.addEventListener("pointercancel", () => {
-        isPainting = false;
-        lastPaintedPos = -1;
-    });
 }
 
 export function sendServerMessage(name, args) {
