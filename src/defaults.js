@@ -228,10 +228,6 @@ export const DEFAULT_EFFECTS = new Map([
  * @constant {AdInfo[]} ADS
  */
 export const ADS = [
-	/*{ url: "https://youtu.be/R3UBtMloTdI", banners: { en: "images/august21-ad.png" } },
-	{ url: "https://t.me/rplacelive", banners: { en: "images/telegram-ad.png" } },
-	{ url: "https://discord.gg/4XnZ9WGux2", banners: { en: "images/discord-ad.png" } },
-	{ url: "https://arbitrum.life", banners: { en: "images/arbitrum.png" } }*/
 	{ url: "https://texel.pages.dev", banners: { en: "images/texel.png" } }
 ]
 
@@ -291,16 +287,19 @@ export const MAX_CHANNEL_MESSAGES = 100
 // Canvas defaults
 export const DEFAULT_PALETTE_USABLE_REGION = { start: 0, end: 32 };
 
-// --- 4x8 IZGARAYA GÖRE HESAPLANMIŞ GERÇEK PİKSEL SANATI (R/PLACE) RENKLERİ ---
+// --- 4x8 IZGARAYA GÖRE HESAPLANMIŞ VE İSTENEN YENİ RENK PALETİ ---
 export const DEFAULT_PALETTE = [
-	// 1. Sıra (Siyah, Griler, Beyaz, Pembe, Kırmızı)
-	0xff000000, 0xff515252, 0xff898D90, 0xffD4D7D9, 0xffE8E8E8, 0xffFFFFFF, 0xffFFA8B5, 0xffFF4500,
-	// 2. Sıra (Koyu Kırmızı, Bordo, Kahverengi, Turuncu, Açık Yeşil, Yeşil, Koyu Yeşil, Mavi)
-	0xffE81224, 0xffBE0039, 0xff7A0838, 0xffFFA800, 0xff7EED56, 0xff00CC78, 0xff00A368, 0xff2450A4,
-	// 3. Sıra (Açık Mavi, Camgöbeği, Turkuaz, Eflatun, Mor, Koyu Mor, Kehribar, Sarı)
-	0xff3690EA, 0xff51E9F4, 0xff00CCC0, 0xffE4ABFF, 0xffB44AC0, 0xff811E9F, 0xffFF9933, 0xffFFD635,
-	// 4. Sıra (Kahverengi, Koyu Turkuaz, Çivit Mavisi, Pas, Zeytin Yeşili, Çelik Grisi, Soluk Mavi, Soluk Sarı)
-	0xff9C6926, 0xff00756F, 0xff493AC1, 0xffA1522E, 0xff819A32, 0xff839098, 0xff94B3FF, 0xffFFF8B8
+	// 1. Satır: Siyah, Koyu Gri 1, Koyu Gri 2, Orta Gri, Açık Gri, Beyaz, Açık Pembe, Mat Kırmızı
+	0xff000000, 0xff666666, 0xff555555, 0xff888888, 0xffCCCCCC, 0xffFFFFFF, 0xffFFA0A0, 0xffD03030,
+	
+	// 2. Satır: Canlı Kırmızı, Koyu Kırmızı, Bordo, Turuncu, Açık Yeşil (Lime), Fıstık Yeşili, Koyu Yeşil, Çivit Mavisi
+	0xffE01040, 0xffA00000, 0xff700000, 0xffFF6000, 0xffCCFF66, 0xff88E077, 0xff007733, 0xff4050C0,
+	
+	// 3. Satır: Gök Mavisi, Buz Mavisi, Camgöbeği (Cyan), Lila, Mor, Pembe (Macenta), Hardal / Koyu Turuncu, Sarı
+	0xff70B0E0, 0xff88DDFF, 0xff00FFFF, 0xffB080FF, 0xffB030FF, 0xffF03080, 0xffFF9900, 0xffFFFF00,
+	
+	// 4. Satır: Kahverengi, Ten Rengi / Şeftali, Lacivert, Açık Kahverengi / Kum Rengi, Neon Parlak Yeşil, Teal / Deniz Mavisi, Koyu Mor / İndigo, Altın Sarısı / Gold
+	0xff603010, 0xffFFCCAA, 0xff000080, 0xffD2B48C, 0xff00FF00, 0xff008080, 0xff4B0082, 0xffFFD700
 ];
 
 export const DEFAULT_WIDTH = 2000;
