@@ -46,6 +46,36 @@ function closePalette() {
     isPaletteOpen = false;
 }
 
+function getPixelPositionFromIndicator() {
+    const text = document.getElementById("positionIndicator")?.innerText ?? "";
+    const match = text.match(/\((\d+),\s*(\d+)\)/);
+    if (!match) return null;
+
+    const x = parseInt(match[1], 10);
+    const y = parseInt(match[2], 10);
+
+    if (Number.isNaN(x) || Number.isNaN(y)) return null;
+    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return null;
+
+    return {
+        x,
+        y,
+        pos: x + y * WIDTH
+    };
+}
+
+function forceRenderPixel(index, colour) {
+    if (BOARD) BOARD[index] = colour;
+    if (SOCKET_PIXELS) SOCKET_PIXELS[index] = colour;
+    if (RAW_BOARD) RAW_BOARD[index] = colour;
+
+    // Geçici/preview katmanını temiz tut
+    if (CHANGES) CHANGES[index] = 255;
+
+    window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+    window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
+}
+
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
     connectStatus = "connected";
@@ -60,39 +90,56 @@ export function connect(device, server = "", vip = undefined) {
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // Verileri Çek
-    supabase.from('pixels').select('*').then(({ data }) => {
+    // Verileri çek
+    supabase.from("pixels").select("*").then(({ data }) => {
         if (data) {
-            data.forEach(p => {
-                const idx = (parseInt(p.x) % WIDTH) + (parseInt(p.y) % HEIGHT) * WIDTH;
-                if (BOARD) BOARD[idx] = parseInt(p.color);
-                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
+            data.forEach((p) => {
+                const x = parseInt(p.x, 10);
+                const y = parseInt(p.y, 10);
+                const colour = parseInt(p.color, 10);
+                const idx = (x % WIDTH) + (y % HEIGHT) * WIDTH;
+
+                if (BOARD) BOARD[idx] = colour;
+                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = colour;
+                if (RAW_BOARD) RAW_BOARD[idx] = colour;
+                if (CHANGES) CHANGES[idx] = 255;
             });
+
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+            window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
         }
     });
 
-    // Canlı Takip
-    supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
-        const p = payload.new;
-        if (p) {
-            const idx = (parseInt(p.x) % WIDTH) + (parseInt(p.y) % HEIGHT) * WIDTH;
-            if (BOARD) BOARD[idx] = parseInt(p.color);
-            if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
-            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-        }
-    }).subscribe();
+    // Canlı takip
+    supabase
+        .channel("any")
+        .on("postgres_changes", { event: "*", schema: "public", table: "pixels" }, (payload) => {
+            const p = payload.new;
+            if (p) {
+                const x = parseInt(p.x, 10);
+                const y = parseInt(p.y, 10);
+                const colour = parseInt(p.color, 10);
+                const idx = (x % WIDTH) + (y % HEIGHT) * WIDTH;
+
+                if (BOARD) BOARD[idx] = colour;
+                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = colour;
+                if (RAW_BOARD) RAW_BOARD[idx] = colour;
+                if (CHANGES) CHANGES[idx] = 255;
+
+                window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
+            }
+        })
+        .subscribe();
 
     // ======================================================
     // SERBEST MOD
     // ======================================================
 
-    // Oyunun renk seçme eventini dinle - hangi rengin seçildiğini takip et
+    // Oyunun renk seçme eventini dinle
     window.addEventListener("colourselect", (e) => {
         if (e.detail?.colour !== undefined) {
             selectedColorIndex = e.detail.colour;
 
-            // Serbest moddaysa renk seçildikten sonra paleti kapat
             if (isFreeMode) {
                 setTimeout(() => {
                     closePalette();
@@ -101,7 +148,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     });
 
-    // Yedek: colours div'indeki selected class/tıklamayı takip et
+    // Yedek: paletten tıklanan index'i takip et
     setTimeout(() => {
         const colours = document.getElementById("colours");
         if (colours) {
@@ -127,9 +174,9 @@ export function connect(device, server = "", vip = undefined) {
         }
     }, 1000);
 
-    // Serbest Mod Butonu
-    // İlk basış: modu aç + palette göster
-    // Tekrar basış: modu kapatma, sadece palette tekrar aç (renk değiştirmek için)
+    // Serbest mod butonu
+    // İlk basış: aç + palet göster
+    // Tekrar basış: kapatma, sadece palette tekrar aç
     const freeBtn = document.getElementById("freeModeToggle");
     if (freeBtn) {
         freeBtn.addEventListener("click", (e) => {
@@ -147,7 +194,7 @@ export function connect(device, server = "", vip = undefined) {
         });
     }
 
-    // İptal butonu: serbest modu tamamen kapat
+    // İptal butonu: serbest modu kapat
     setTimeout(() => {
         const cancelBtn = document.getElementById("pcancel");
         if (cancelBtn) {
@@ -167,7 +214,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     }, 1000);
 
-    // pok (✓) butonuna basılınca: serbest moddaysa onay yapma, sadece palette kapat
+    // ✓ butonu: serbest modda sadece palette kapat
     setTimeout(() => {
         const pokBtn = document.getElementById("pok");
         if (pokBtn) {
@@ -181,7 +228,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     }, 1000);
 
-    // Viewport - serbest moddayken tıklayınca direkt boya
+    // Viewport - serbest modda bastığın yer direkt kalıcı boyansın
     const viewport = document.getElementById("viewport");
     if (viewport) {
         let isPainting = false;
@@ -190,18 +237,19 @@ export function connect(device, server = "", vip = undefined) {
         function paintAt() {
             if (!isFreeMode || isPaletteOpen) return;
 
-            const text = document.getElementById("positionIndicator")?.innerText ?? "";
-            const match = text.match(/\((\d+),\s*(\d+)\)/);
-            if (!match) return;
+            const pixel = getPixelPositionFromIndicator();
+            if (!pixel) return;
 
-            const x = parseInt(match[1], 10);
-            const y = parseInt(match[2], 10);
-            const pos = x + y * WIDTH;
+            if (pixel.pos === lastPos) return;
+            lastPos = pixel.pos;
 
-            if (pos === lastPos) return;
-            lastPos = pos;
+            sendServerMessage("putPixel", {
+                position: pixel.pos,
+                colour: selectedColorIndex
+            });
 
-            sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
+            // Render tarafını zorla güncelle ki pixel taşınmasın, olduğu yerde kalsın
+            forceRenderPixel(pixel.pos, selectedColorIndex);
         }
 
         viewport.addEventListener("pointerdown", (e) => {
@@ -242,19 +290,39 @@ export function sendServerMessage(name, args) {
     if (name === "putPixel") {
         let pos = args?.position ?? (Array.isArray(args) ? args[0] : null);
         let col = args?.colour ?? (Array.isArray(args) ? args[1] : null);
+
         if (pos !== null && col !== null) {
             const x = pos % WIDTH;
             const y = Math.floor(pos / WIDTH);
-            setPixelI(pos, col);
+
+            // Tüm board katmanlarını birlikte güncelle
+            if (BOARD) BOARD[pos] = col;
+            if (SOCKET_PIXELS) SOCKET_PIXELS[pos] = col;
+            if (RAW_BOARD) RAW_BOARD[pos] = col;
+            if (CHANGES) CHANGES[pos] = 255;
+
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-            supabase.from('pixels').upsert({ x: x, y: y, color: col.toString() }).then();
+            window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
+            window.dispatchEvent(new CustomEvent("boardupdate", {
+                detail: { x, y, colour: col, position: pos },
+                bubbles: true,
+                composed: true
+            }));
+
+            // Veritabanına kalıcı kaydet
+            supabase
+                .from("pixels")
+                .upsert({ x: x, y: y, color: col.toString() })
+                .then(() => {});
+
             setCooldown(Date.now());
         }
     }
 }
 
 export function setSize(width, height) {
-    WIDTH = width; HEIGHT = height;
+    WIDTH = width;
+    HEIGHT = height;
     BOARD = new Uint8Array(width * height).fill(255);
     SOCKET_PIXELS = new Uint8Array(width * height).fill(255);
     RAW_BOARD = new Uint8Array(width * height).fill(255);
@@ -269,10 +337,12 @@ export function setCooldown(endDate) {
 }
 
 export function setPixel(x, y, colour) {
-    setPixelI(x % WIDTH + (y % HEIGHT) * WIDTH, colour);
+    setPixelI((x % WIDTH) + (y % HEIGHT) * WIDTH, colour);
 }
 
 export function setPixelI(index, colour) {
     if (BOARD) BOARD[index] = colour;
     if (SOCKET_PIXELS) SOCKET_PIXELS[index] = colour;
+    if (RAW_BOARD) RAW_BOARD[index] = colour;
+    if (CHANGES) CHANGES[index] = 255;
 }
