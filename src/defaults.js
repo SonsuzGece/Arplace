@@ -287,7 +287,7 @@ export const MAX_CHANNEL_MESSAGES = 100
 // Canvas defaults
 export const DEFAULT_PALETTE_USABLE_REGION = { start: 0, end: 32 };
 
-// --- GÖRSELE GÖRE BİREBİR HESAPLANMIŞ 32'LİK RENK PALETİ ---
+// --- 4x8 IZGARAYA GÖRE HESAPLANMIŞ VE GÜNCELLENMİŞ 32'LİK RENK PALETİ ---
 export const DEFAULT_PALETTE = [
 	// 1. Satır: Siyah, Koyu Gri, Gri, Açık Gri, Daha Açık Gri, Beyaz, Açık Pembe, Kırmızı
 	0xff000000, 0xff747474, 0xff5c5c5c, 0xff8c8c8c, 0xffdcdcdc, 0xffffffff, 0xff8ca0ff, 0xff3738cf,
@@ -298,8 +298,8 @@ export const DEFAULT_PALETTE = [
 	// 3. Satır: Mavi, Açık Mavi, Turkuaz, Eflatun/Lila, Mor, Fuşya/Pembe, Turuncu/Sarımsı, Sarı
 	0xffcf9b6b, 0xffebd382, 0xffffff00, 0xffff9df3, 0xffff4bf0, 0xff8931eb, 0xff0096ff, 0xff00d1ff,
 	
-	// 4. Satır: Kahverengi, Siyah, Siyah, Siyah, Siyah, Siyah, Siyah, Siyah
-	0xff00395c, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000
+	// 4. Satır: Kahverengi, Ten Rengi / Şeftali, Lacivert, Kum Rengi, Neon Yeşil, Teal / Deniz Mavisi, İndigo / Koyu Mor, Altın Sarısı
+	0xff00395c, 0xffaaccff, 0xff800000, 0xff8cb4d2, 0xff00ff00, 0xff808000, 0xff82004b, 0xff00d7ff
 ];
 
 export const DEFAULT_WIDTH = 2000;
