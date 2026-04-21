@@ -1,5 +1,5 @@
 "use strict";
-import { DEFAULT_HEIGHT, DEFAULT_PALETTE, DEFAULT_PALETTE_USABLE_REGION, DEFAULT_WIDTH, PLACEMENT_MODE, supabase } from "../../defaults.js";
+import { DEFAULT_COOLDOWN, DEFAULT_HEIGHT, DEFAULT_PALETTE, DEFAULT_PALETTE_USABLE_REGION, DEFAULT_WIDTH, PLACEMENT_MODE, supabase } from "../../defaults.js";
 
 export let BOARD = null;
 export let CHANGES = null;
@@ -28,87 +28,12 @@ export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 export async function makeServerRequest() { return null; }
 
+// --- SERBEST MOD (FIRÇA) DEĞİŞKENLERİ ---
 let isFreeMode = false;
-let selectedColorIndex = 0;
 let isPaletteOpen = false;
-
-function openPalette() {
-    const paletteDiv = document.getElementById("palette");
-    if (!paletteDiv) return;
-    paletteDiv.style.transform = "translateY(0)";
-    isPaletteOpen = true;
-}
-
-function closePalette() {
-    const paletteDiv = document.getElementById("palette");
-    if (!paletteDiv) return;
-    paletteDiv.style.transform = "translateY(100%)";
-    isPaletteOpen = false;
-}
-
-function setSelectorVisible(visible) {
-    const sel = document.getElementById("canvselect");
-    if (sel) {
-        sel.style.display = visible ? "" : "none";
-    }
-}
-
-function argbToRgbaCss(argb) {
-    const a = ((argb >> 24) & 0xff) / 255;
-    const r = (argb >> 16) & 0xff;
-    const g = (argb >> 8) & 0xff;
-    const b = argb & 0xff;
-    return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
-function drawPixelToMainCanvas(x, y, colourIndex) {
-    const canvas = document.getElementById("canvas");
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const argb = PALETTE[colourIndex];
-    if (argb === undefined) return;
-
-    ctx.fillStyle = argbToRgbaCss(argb);
-    ctx.fillRect(x, y, 1, 1);
-}
-
-function getPixelPositionFromIndicator() {
-    const text = document.getElementById("positionIndicator")?.innerText ?? "";
-    const match = text.match(/\((\d+),\s*(\d+)\)/);
-    if (!match) return null;
-
-    const x = parseInt(match[1], 10);
-    const y = parseInt(match[2], 10);
-
-    if (Number.isNaN(x) || Number.isNaN(y)) return null;
-    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return null;
-
-    return {
-        x,
-        y,
-        pos: x + y * WIDTH
-    };
-}
-
-function applyPixelEverywhere(x, y, pos, colourIndex) {
-    if (BOARD) BOARD[pos] = colourIndex;
-    if (SOCKET_PIXELS) SOCKET_PIXELS[pos] = colourIndex;
-    if (RAW_BOARD) RAW_BOARD[pos] = colourIndex;
-    if (CHANGES) CHANGES[pos] = 255;
-
-    drawPixelToMainCanvas(x, y, colourIndex);
-
-    window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-    window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
-    window.dispatchEvent(new CustomEvent("boardupdate", {
-        detail: { x, y, colour: colourIndex, position: pos },
-        bubbles: true,
-        composed: true
-    }));
-}
+let selectedColorIndex = 0;
+let isPainting = false;
+let lastPos = -1;
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -118,220 +43,172 @@ export function connect(device, server = "", vip = undefined) {
 
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
-        window.dispatchEvent(new CustomEvent("palette", {
-            detail: {
-                palette: PALETTE,
-                start: PALETTE_USABLE_REGION.start,
-                end: PALETTE_USABLE_REGION.end
-            },
-            bubbles: true,
-            composed: true
-        }));
+        window.dispatchEvent(new CustomEvent("palette", { detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end }, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("online", { detail: { count: 1 }, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // Verileri çek
-    supabase.from("pixels").select("*").then(({ data }) => {
+    // Verileri Çek
+    supabase.from('pixels').select('*').then(({ data }) => {
         if (data) {
-            data.forEach((p) => {
-                const x = parseInt(p.x, 10);
-                const y = parseInt(p.y, 10);
-                const colour = parseInt(p.color, 10);
-                const idx = (x % WIDTH) + (y % HEIGHT) * WIDTH;
-
-                if (BOARD) BOARD[idx] = colour;
-                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = colour;
-                if (RAW_BOARD) RAW_BOARD[idx] = colour;
-                if (CHANGES) CHANGES[idx] = 255;
-
-                drawPixelToMainCanvas(x, y, colour);
+            data.forEach(p => {
+                const idx = (parseInt(p.x) % WIDTH) + (parseInt(p.y) % HEIGHT) * WIDTH;
+                if (BOARD) BOARD[idx] = parseInt(p.color);
+                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
             });
-
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-            window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
         }
     });
 
-    // Canlı takip
-    supabase
-        .channel("any")
-        .on("postgres_changes", { event: "*", schema: "public", table: "pixels" }, (payload) => {
-            const p = payload.new;
-            if (p) {
-                const x = parseInt(p.x, 10);
-                const y = parseInt(p.y, 10);
-                const colour = parseInt(p.color, 10);
-                const idx = (x % WIDTH) + (y % HEIGHT) * WIDTH;
-
-                if (BOARD) BOARD[idx] = colour;
-                if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = colour;
-                if (RAW_BOARD) RAW_BOARD[idx] = colour;
-                if (CHANGES) CHANGES[idx] = 255;
-
-                drawPixelToMainCanvas(x, y, colour);
-
-                window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-            }
-        })
-        .subscribe();
-
-    // Renk seçme eventi
-    window.addEventListener("colourselect", (e) => {
-        if (e.detail?.colour !== undefined) {
-            selectedColorIndex = e.detail.colour;
-
-            if (isFreeMode) {
-                setTimeout(() => {
-                    closePalette();
-                }, 50);
-            }
+    // Canlı Takip
+    supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
+        const p = payload.new;
+        if (p) {
+            const idx = (parseInt(p.x) % WIDTH) + (parseInt(p.y) % HEIGHT) * WIDTH;
+            if (BOARD) BOARD[idx] = parseInt(p.color);
+            if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = parseInt(p.color);
+            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
         }
-    });
+    }).subscribe();
 
-    // Yedek palet tıklaması
-    setTimeout(() => {
-        const colours = document.getElementById("colours");
-        if (colours) {
-            colours.addEventListener("click", (e) => {
-                const children = Array.from(colours.children);
-                let t = e.target;
-
-                while (t && t !== colours) {
-                    const idx = children.indexOf(t);
-                    if (idx !== -1) {
-                        selectedColorIndex = idx;
-
-                        if (isFreeMode) {
-                            setTimeout(() => {
-                                closePalette();
-                            }, 50);
-                        }
-                        break;
-                    }
-                    t = t.parentNode;
-                }
-            }, true);
-        }
-    }, 1000);
-
-    // Serbest mod butonu
+    // ======================================================
+    // SERBEST MOD (FIRÇA) MANTIĞI
+    // ======================================================
     const freeBtn = document.getElementById("freeModeToggle");
+    const paletteDiv = document.getElementById("palette");
+    const coloursContainer = document.getElementById("colours");
+    const pokBtn = document.getElementById("pok");
+    const pcancelBtn = document.getElementById("pcancel");
+    const viewport = document.getElementById("viewport");
+
+    // Palet Kontrol Fonksiyonları
+    function openPalette() {
+        isPaletteOpen = true;
+        if (paletteDiv) paletteDiv.style.transform = "translateY(0)";
+        if (pokBtn) pokBtn.style.display = "none";       // Onay butonunu gizle
+        if (pcancelBtn) pcancelBtn.style.display = "none"; // İptal butonunu gizle
+    }
+
+    function closePalette() {
+        isPaletteOpen = false;
+        if (paletteDiv) paletteDiv.style.transform = "translateY(100%)";
+        if (!isFreeMode) {
+            // Mod tamamen kapandıysa orijinal butonları geri getir
+            if (pokBtn) pokBtn.style.display = "flex";
+            if (pcancelBtn) pcancelBtn.style.display = "flex";
+        }
+    }
+
+    // 1. Butona Tıklama (Aç / Renk Değiştir / Tamamen Kapat)
     if (freeBtn) {
         freeBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            e.preventDefault();
 
             if (!isFreeMode) {
+                // MOD KAPALIYSA: Modu aç ve rengi seçmesi için paleti göster
                 isFreeMode = true;
-                placementMode = PLACEMENT_MODE.freeDraw;
                 freeBtn.classList.add("active");
-                setSelectorVisible(false);
                 openPalette();
             } else {
-                openPalette();
+                if (!isPaletteOpen) {
+                    // MOD AÇIK AMA PALET KAPALIYSA (Boyama modunda): Rengi değiştirmesi için paleti geri aç
+                    openPalette();
+                } else {
+                    // MOD AÇIK VE PALET AÇIKSA: Kullanıcı modu tamamen kapatmak istiyor demektir
+                    isFreeMode = false;
+                    freeBtn.classList.remove("active");
+                    closePalette();
+                }
             }
         });
     }
 
-    // İptal butonu: serbest modu kapat
-    setTimeout(() => {
-        const cancelBtn = document.getElementById("pcancel");
-        if (cancelBtn) {
-            cancelBtn.addEventListener("click", (e) => {
-                if (!isFreeMode) return;
+    // 2. Paletten Renk Seçimi (Anında kapanır ve boyamaya hazır olur)
+    if (coloursContainer) {
+        coloursContainer.addEventListener("click", (e) => {
+            if (!isFreeMode) return;
 
-                e.stopImmediatePropagation();
-                e.preventDefault();
+            const children = Array.from(coloursContainer.children);
+            let target = e.target;
 
-                closePalette();
-                isFreeMode = false;
-                placementMode = PLACEMENT_MODE.selectPixel;
-                setSelectorVisible(true);
+            while (target && target !== coloursContainer) {
+                const index = children.indexOf(target);
+                if (index !== -1) {
+                    selectedColorIndex = index;
 
-                const freeBtn = document.getElementById("freeModeToggle");
-                if (freeBtn) freeBtn.classList.remove("active");
-            }, { capture: true });
-        }
-    }, 1000);
+                    // Seçili rengi çerçeve ile belirt (Beyaz outline)
+                    children.forEach(c => c.style.outline = "");
+                    children[index].style.outline = "3px solid white";
 
-    // ✓ butonu: serbest modda sadece paleti kapat
-    setTimeout(() => {
-        const pokBtn = document.getElementById("pok");
-        if (pokBtn) {
-            pokBtn.addEventListener("click", (e) => {
-                if (!isFreeMode) return;
+                    // RENGİ SEÇTİK -> PALETİ KAPAT -> DİREKT BOYAMAYA BAŞLA!
+                    closePalette();
 
-                e.stopImmediatePropagation();
-                e.preventDefault();
-                closePalette();
-            }, { capture: true });
-        }
-    }, 1000);
-
-    // Viewport - bastığın yer direkt kalıcı boyansın
-    const viewport = document.getElementById("viewport");
-    if (viewport) {
-        let isPainting = false;
-        let lastPos = -1;
-
-        async function paintAt() {
-            if (!isFreeMode || isPaletteOpen) return;
-
-            const pixel = getPixelPositionFromIndicator();
-            if (!pixel) return;
-
-            if (pixel.pos === lastPos) return;
-            lastPos = pixel.pos;
-
-            // Önce ekranda ve buffer'da kalıcı göster
-            applyPixelEverywhere(pixel.x, pixel.y, pixel.pos, selectedColorIndex);
-
-            // Sonra veritabanına kaydet
-            try {
-                await supabase
-                    .from("pixels")
-                    .upsert({
-                        x: pixel.x,
-                        y: pixel.y,
-                        color: selectedColorIndex.toString()
-                    });
-
-                setCooldown(Date.now());
-            } catch (err) {
-                console.error("Pixel kaydedilemedi:", err);
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    break;
+                }
+                target = target.parentNode;
             }
+        }, { capture: true }); // Oyunun kendi renk seçicisini ezer
+    }
+
+    // 3. Ekrana Tıklayıp/Sürükleyip Boyama (Fırça İşlemi)
+    if (viewport) {
+        function paintAt() {
+            const text = document.getElementById("positionIndicator")?.innerText ?? "";
+            // Regex düzeltildi! Doğru şekilde (X, Y) koordinatını alır
+            const match = text.match(/\((\d+),\s*(\d+)\)/);
+            if (!match) return;
+
+            const x = parseInt(match[1]);
+            const y = parseInt(match[2]);
+            const pos = x + y * WIDTH;
+
+            // Aynı piksele saniyede 100 kere istek atmasını engelle
+            if (pos === lastPos) return;
+            lastPos = pos;
+
+            sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
         }
 
+        // Tıklamaya başlayınca...
         viewport.addEventListener("pointerdown", (e) => {
-            if (!isFreeMode || isPaletteOpen) return;
-
+            if (!isFreeMode) return;
+            
+            // Oyunun orijinal "palet açma" olayını kökünden kes!
             e.stopImmediatePropagation();
             e.preventDefault();
+            
+            // Eğer yanlışlıkla palet açıkken ekrana dokunduysa paleti kapat
+            if (isPaletteOpen) closePalette();
 
             isPainting = true;
-            lastPos = -1;
-            paintAt();
-        }, { capture: true });
+            lastPos = -1; // Yeni tıklamada hafızayı sıfırla
+            requestAnimationFrame(paintAt);
+        }, { capture: true }); // Capture: true çok önemlidir, oyun motorundan önce çalışır!
 
+        // Sürüklerken...
         viewport.addEventListener("pointermove", (e) => {
-            if (!isFreeMode || !isPainting || isPaletteOpen) return;
-
+            if (!isFreeMode || !isPainting) return;
             e.stopImmediatePropagation();
             e.preventDefault();
-
-            paintAt();
+            requestAnimationFrame(paintAt);
         }, { capture: true });
 
+        // Tıklamayı (Click) oyunun anlamaması için onu da kesiyoruz
         viewport.addEventListener("click", (e) => {
-            if (!isFreeMode || isPaletteOpen) return;
-
+            if (!isFreeMode) return;
             e.stopImmediatePropagation();
             e.preventDefault();
         }, { capture: true });
 
+        // Tıklama bittiğinde...
         window.addEventListener("pointerup", () => {
+            isPainting = false;
+            lastPos = -1;
+        });
+        window.addEventListener("pointercancel", () => {
             isPainting = false;
             lastPos = -1;
         });
@@ -347,22 +224,17 @@ export function sendServerMessage(name, args) {
             const x = pos % WIDTH;
             const y = Math.floor(pos / WIDTH);
 
-            applyPixelEverywhere(x, y, pos, col);
+            setPixelI(pos, col);
+            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            supabase
-                .from("pixels")
-                .upsert({ x, y, color: col.toString() })
-                .then(() => {})
-                .catch((err) => console.error("putPixel save error:", err));
-
+            supabase.from('pixels').upsert({ x: x, y: y, color: col.toString() }).then();
             setCooldown(Date.now());
         }
     }
 }
 
 export function setSize(width, height) {
-    WIDTH = width;
-    HEIGHT = height;
+    WIDTH = width; HEIGHT = height;
     BOARD = new Uint8Array(width * height).fill(255);
     SOCKET_PIXELS = new Uint8Array(width * height).fill(255);
     RAW_BOARD = new Uint8Array(width * height).fill(255);
@@ -373,20 +245,14 @@ export function setSize(width, height) {
 export function setCooldown(endDate) {
     cooldownEndDate = endDate;
     onCooldown = false;
-    window.dispatchEvent(new CustomEvent("cooldownstart", {
-        detail: { endDate, onCooldown: false },
-        bubbles: true,
-        composed: true
-    }));
+    window.dispatchEvent(new CustomEvent("cooldownstart", { detail: { endDate, onCooldown: false }, bubbles: true, composed: true }));
 }
 
 export function setPixel(x, y, colour) {
-    setPixelI((x % WIDTH) + (y % HEIGHT) * WIDTH, colour);
+    setPixelI(x % WIDTH + (y % HEIGHT) * WIDTH, colour);
 }
 
 export function setPixelI(index, colour) {
     if (BOARD) BOARD[index] = colour;
     if (SOCKET_PIXELS) SOCKET_PIXELS[index] = colour;
-    if (RAW_BOARD) RAW_BOARD[index] = colour;
-    if (CHANGES) CHANGES[index] = 255;
 }
