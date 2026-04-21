@@ -46,6 +46,35 @@ function closePalette() {
     isPaletteOpen = false;
 }
 
+function setSelectorVisible(visible) {
+    const sel = document.getElementById("canvselect");
+    if (sel) {
+        sel.style.display = visible ? "" : "none";
+    }
+}
+
+function argbToRgbaCss(argb) {
+    const a = ((argb >> 24) & 0xff) / 255;
+    const r = (argb >> 16) & 0xff;
+    const g = (argb >> 8) & 0xff;
+    const b = argb & 0xff;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+function drawPixelToMainCanvas(x, y, colourIndex) {
+    const canvas = document.getElementById("canvas");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const argb = PALETTE[colourIndex];
+    if (argb === undefined) return;
+
+    ctx.fillStyle = argbToRgbaCss(argb);
+    ctx.fillRect(x, y, 1, 1);
+}
+
 function getPixelPositionFromIndicator() {
     const text = document.getElementById("positionIndicator")?.innerText ?? "";
     const match = text.match(/\((\d+),\s*(\d+)\)/);
@@ -64,16 +93,21 @@ function getPixelPositionFromIndicator() {
     };
 }
 
-function forceRenderPixel(index, colour) {
-    if (BOARD) BOARD[index] = colour;
-    if (SOCKET_PIXELS) SOCKET_PIXELS[index] = colour;
-    if (RAW_BOARD) RAW_BOARD[index] = colour;
+function applyPixelEverywhere(x, y, pos, colourIndex) {
+    if (BOARD) BOARD[pos] = colourIndex;
+    if (SOCKET_PIXELS) SOCKET_PIXELS[pos] = colourIndex;
+    if (RAW_BOARD) RAW_BOARD[pos] = colourIndex;
+    if (CHANGES) CHANGES[pos] = 255;
 
-    // Geçici/preview katmanını temiz tut
-    if (CHANGES) CHANGES[index] = 255;
+    drawPixelToMainCanvas(x, y, colourIndex);
 
     window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
     window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
+    window.dispatchEvent(new CustomEvent("boardupdate", {
+        detail: { x, y, colour: colourIndex, position: pos },
+        bubbles: true,
+        composed: true
+    }));
 }
 
 export function connect(device, server = "", vip = undefined) {
@@ -84,7 +118,15 @@ export function connect(device, server = "", vip = undefined) {
 
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
-        window.dispatchEvent(new CustomEvent("palette", { detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end }, bubbles: true, composed: true }));
+        window.dispatchEvent(new CustomEvent("palette", {
+            detail: {
+                palette: PALETTE,
+                start: PALETTE_USABLE_REGION.start,
+                end: PALETTE_USABLE_REGION.end
+            },
+            bubbles: true,
+            composed: true
+        }));
         window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("online", { detail: { count: 1 }, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
@@ -103,6 +145,8 @@ export function connect(device, server = "", vip = undefined) {
                 if (SOCKET_PIXELS) SOCKET_PIXELS[idx] = colour;
                 if (RAW_BOARD) RAW_BOARD[idx] = colour;
                 if (CHANGES) CHANGES[idx] = 255;
+
+                drawPixelToMainCanvas(x, y, colour);
             });
 
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
@@ -126,16 +170,14 @@ export function connect(device, server = "", vip = undefined) {
                 if (RAW_BOARD) RAW_BOARD[idx] = colour;
                 if (CHANGES) CHANGES[idx] = 255;
 
+                drawPixelToMainCanvas(x, y, colour);
+
                 window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
             }
         })
         .subscribe();
 
-    // ======================================================
-    // SERBEST MOD
-    // ======================================================
-
-    // Oyunun renk seçme eventini dinle
+    // Renk seçme eventi
     window.addEventListener("colourselect", (e) => {
         if (e.detail?.colour !== undefined) {
             selectedColorIndex = e.detail.colour;
@@ -148,7 +190,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     });
 
-    // Yedek: paletten tıklanan index'i takip et
+    // Yedek palet tıklaması
     setTimeout(() => {
         const colours = document.getElementById("colours");
         if (colours) {
@@ -175,8 +217,6 @@ export function connect(device, server = "", vip = undefined) {
     }, 1000);
 
     // Serbest mod butonu
-    // İlk basış: aç + palet göster
-    // Tekrar basış: kapatma, sadece palette tekrar aç
     const freeBtn = document.getElementById("freeModeToggle");
     if (freeBtn) {
         freeBtn.addEventListener("click", (e) => {
@@ -187,6 +227,7 @@ export function connect(device, server = "", vip = undefined) {
                 isFreeMode = true;
                 placementMode = PLACEMENT_MODE.freeDraw;
                 freeBtn.classList.add("active");
+                setSelectorVisible(false);
                 openPalette();
             } else {
                 openPalette();
@@ -207,6 +248,7 @@ export function connect(device, server = "", vip = undefined) {
                 closePalette();
                 isFreeMode = false;
                 placementMode = PLACEMENT_MODE.selectPixel;
+                setSelectorVisible(true);
 
                 const freeBtn = document.getElementById("freeModeToggle");
                 if (freeBtn) freeBtn.classList.remove("active");
@@ -214,7 +256,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     }, 1000);
 
-    // ✓ butonu: serbest modda sadece palette kapat
+    // ✓ butonu: serbest modda sadece paleti kapat
     setTimeout(() => {
         const pokBtn = document.getElementById("pok");
         if (pokBtn) {
@@ -228,13 +270,13 @@ export function connect(device, server = "", vip = undefined) {
         }
     }, 1000);
 
-    // Viewport - serbest modda bastığın yer direkt kalıcı boyansın
+    // Viewport - bastığın yer direkt kalıcı boyansın
     const viewport = document.getElementById("viewport");
     if (viewport) {
         let isPainting = false;
         let lastPos = -1;
 
-        function paintAt() {
+        async function paintAt() {
             if (!isFreeMode || isPaletteOpen) return;
 
             const pixel = getPixelPositionFromIndicator();
@@ -243,13 +285,23 @@ export function connect(device, server = "", vip = undefined) {
             if (pixel.pos === lastPos) return;
             lastPos = pixel.pos;
 
-            sendServerMessage("putPixel", {
-                position: pixel.pos,
-                colour: selectedColorIndex
-            });
+            // Önce ekranda ve buffer'da kalıcı göster
+            applyPixelEverywhere(pixel.x, pixel.y, pixel.pos, selectedColorIndex);
 
-            // Render tarafını zorla güncelle ki pixel taşınmasın, olduğu yerde kalsın
-            forceRenderPixel(pixel.pos, selectedColorIndex);
+            // Sonra veritabanına kaydet
+            try {
+                await supabase
+                    .from("pixels")
+                    .upsert({
+                        x: pixel.x,
+                        y: pixel.y,
+                        color: selectedColorIndex.toString()
+                    });
+
+                setCooldown(Date.now());
+            } catch (err) {
+                console.error("Pixel kaydedilemedi:", err);
+            }
         }
 
         viewport.addEventListener("pointerdown", (e) => {
@@ -260,7 +312,7 @@ export function connect(device, server = "", vip = undefined) {
 
             isPainting = true;
             lastPos = -1;
-            requestAnimationFrame(paintAt);
+            paintAt();
         }, { capture: true });
 
         viewport.addEventListener("pointermove", (e) => {
@@ -269,7 +321,7 @@ export function connect(device, server = "", vip = undefined) {
             e.stopImmediatePropagation();
             e.preventDefault();
 
-            requestAnimationFrame(paintAt);
+            paintAt();
         }, { capture: true });
 
         viewport.addEventListener("click", (e) => {
@@ -295,25 +347,13 @@ export function sendServerMessage(name, args) {
             const x = pos % WIDTH;
             const y = Math.floor(pos / WIDTH);
 
-            // Tüm board katmanlarını birlikte güncelle
-            if (BOARD) BOARD[pos] = col;
-            if (SOCKET_PIXELS) SOCKET_PIXELS[pos] = col;
-            if (RAW_BOARD) RAW_BOARD[pos] = col;
-            if (CHANGES) CHANGES[pos] = 255;
+            applyPixelEverywhere(x, y, pos, col);
 
-            window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
-            window.dispatchEvent(new CustomEvent("boardloaded", { detail: {}, bubbles: true, composed: true }));
-            window.dispatchEvent(new CustomEvent("boardupdate", {
-                detail: { x, y, colour: col, position: pos },
-                bubbles: true,
-                composed: true
-            }));
-
-            // Veritabanına kalıcı kaydet
             supabase
                 .from("pixels")
-                .upsert({ x: x, y: y, color: col.toString() })
-                .then(() => {});
+                .upsert({ x, y, color: col.toString() })
+                .then(() => {})
+                .catch((err) => console.error("putPixel save error:", err));
 
             setCooldown(Date.now());
         }
@@ -333,7 +373,11 @@ export function setSize(width, height) {
 export function setCooldown(endDate) {
     cooldownEndDate = endDate;
     onCooldown = false;
-    window.dispatchEvent(new CustomEvent("cooldownstart", { detail: { endDate, onCooldown: false }, bubbles: true, composed: true }));
+    window.dispatchEvent(new CustomEvent("cooldownstart", {
+        detail: { endDate, onCooldown: false },
+        bubbles: true,
+        composed: true
+    }));
 }
 
 export function setPixel(x, y, colour) {
