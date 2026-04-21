@@ -27,8 +27,9 @@ export let onCooldown = false;
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 
-// --- SERBEST MOD HAFIZASI ---
+// --- SERBEST MOD AYARLARI ---
 let isFreeMode = false;
+let selectedColorIndex = 0; // Başlangıçta 0 (Siyah)
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -36,7 +37,6 @@ export function connect(device, server = "", vip = undefined) {
 
     setSize(WIDTH, HEIGHT);
 
-    // Yükleme ekranını anında geçiren sinyaller
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent("intid", { detail: { intId }, bubbles: true, composed: true }));
         window.dispatchEvent(new CustomEvent("palette", { detail: { palette: PALETTE, start: PALETTE_USABLE_REGION.start, end: PALETTE_USABLE_REGION.end }, bubbles: true, composed: true }));
@@ -45,7 +45,7 @@ export function connect(device, server = "", vip = undefined) {
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // Supabase'den eski pikselleri çek
+    // Verileri Çek
     supabase.from('pixels').select('*').then(({ data }) => {
         if (data) {
             data.forEach(p => {
@@ -55,9 +55,9 @@ export function connect(device, server = "", vip = undefined) {
             });
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
         }
-    }).catch(e => console.error(e));
+    });
 
-    // Canlı güncellemeleri dinle
+    // Canlı Takip
     supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
         const p = payload.new;
         if (p) {
@@ -69,54 +69,72 @@ export function connect(device, server = "", vip = undefined) {
     }).subscribe();
 
     // ==========================================
-    // YENİ: KUSURSUZ SERBEST MOD BEYNİ
+    // GERÇEK SERBEST MOD (FIRÇA MANTIĞI)
     // ==========================================
     const freeBtn = document.getElementById("freeModeToggle");
-    const paletteDiv = document.getElementById("palette");
-    const pokBtn = document.getElementById("pok");
-    const pcancelBtn = document.getElementById("pcancel");
-    const viewportDiv = document.getElementById("viewport");
+    const viewport = document.getElementById("viewport");
+    const coloursContainer = document.getElementById("colours");
 
+    // 1. Serbest Modu Aç/Kapat
     if (freeBtn) {
-        freeBtn.addEventListener("click", () => {
-            isFreeMode = !isFreeMode; // Modu aç/kapat
+        freeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            isFreeMode = !isFreeMode;
+            freeBtn.classList.toggle("active", isFreeMode);
             
             if (isFreeMode) {
-                // SERBEST MOD AÇIK: Butonu turuncu yap, paleti hep açık tut, onay butonlarını gizle
-                freeBtn.classList.add("active");
-                if (paletteDiv) paletteDiv.style.transform = "translateY(0)";
-                if (pokBtn) pokBtn.style.display = "none";
-                if (pcancelBtn) pcancelBtn.style.display = "none";
+                // Mod açıldığında paleti manuel açıyoruz ki renk seçebilesin
+                document.getElementById("palette").style.transform = "translateY(0)";
             } else {
-                // SERBEST MOD KAPALI: Butonu normale çevir, paleti gizle, onay butonlarını geri getir
-                freeBtn.classList.remove("active");
-                if (paletteDiv) paletteDiv.style.transform = "translateY(100%)";
-                if (pokBtn) pokBtn.style.display = "flex";
-                if (pcancelBtn) pcancelBtn.style.display = "flex";
+                // Mod kapandığında paleti gizle
+                document.getElementById("palette").style.transform = "translateY(100%)";
             }
         });
     }
 
-    // Ekrana tıklandığında Otomatik Onaylama (Tak Tak Tak)
-    if (viewportDiv) {
-        viewportDiv.addEventListener("pointerup", (e) => {
-            if (isFreeMode && !onCooldown) {
-                // Oyun motorunun (index.js) koordinatı ve rengi algılaması için 20ms bekle
-                setTimeout(() => {
-                    if (pokBtn) {
-                        pokBtn.click(); // Oyunun kendi Onay butonuna gizlice tıkla
-                        
-                        // Oyun, pikseli koyunca paleti kapatmaya çalışacaktır. Onu hemen geri aç!
-                        setTimeout(() => {
-                            if (isFreeMode && paletteDiv) {
-                                paletteDiv.style.transform = "translateY(0)";
-                            }
-                        }, 5);
+    // 2. Renk Seçimi (Sadece renk değişecek, onay istemeyecek)
+    if (coloursContainer) {
+        coloursContainer.addEventListener("click", (e) => {
+            const children = Array.from(coloursContainer.children);
+            let target = e.target;
+            while(target && target.id !== "colours") {
+                const index = children.indexOf(target);
+                if (index !== -1) { 
+                    selectedColorIndex = index; 
+                    // Eğer serbest moddaysak rengi seçince paleti kapatma, açık kalsın
+                    if (isFreeMode) {
+                        e.stopImmediatePropagation(); 
                     }
-                }, 20);
+                    break; 
+                }
+                target = target.parentNode;
             }
         });
     }
+
+    // 3. ANINDA BOYAMA (DOKUNDUĞUN AN)
+    // 'capture: true' kullanarak oyunun kendi palet açma olayını engelliyoruz
+    viewport.addEventListener("pointerdown", (e) => {
+        if (isFreeMode) {
+            // Oyunun orijinal "palet açma" olayını ÖLDÜR
+            e.stopImmediatePropagation();
+            e.preventDefault();
+
+            // Koordinatları al
+            setTimeout(() => {
+                const text = document.getElementById("positionIndicator").innerText;
+                const match = text.match(/\((\d+),\s*(\d+)\)/);
+                if (match) {
+                    const x = parseInt(match[1]);
+                    const y = parseInt(match[2]);
+                    const pos = x + (y * WIDTH);
+                    
+                    // Onay falan sormadan direkt sunucuya gönder
+                    sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
+                }
+            }, 10);
+        }
+    }, { capture: true });
 }
 
 export function sendServerMessage(name, args) {
@@ -128,20 +146,14 @@ export function sendServerMessage(name, args) {
             const x = pos % WIDTH;
             const y = Math.floor(pos / WIDTH);
             
-            // Ekrana anında çiz
             setPixelI(pos, col);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            // Veritabanına (Supabase) kaydet
             supabase.from('pixels').upsert({ x: x, y: y, color: col.toString() }).then();
-            
-            // BEKLEME SÜRESİ (COOLDOWN) YOK - Seri çizime devam
             setCooldown(Date.now());
         }
     }
 }
-
-export async function makeServerRequest() { return null; }
 
 export function setSize(width, height) {
     WIDTH = width; HEIGHT = height;
@@ -156,10 +168,6 @@ export function setCooldown(endDate) {
     cooldownEndDate = endDate;
     onCooldown = false; 
     window.dispatchEvent(new CustomEvent("cooldownstart", { detail: { endDate, onCooldown: false }, bubbles: true, composed: true }));
-}
-
-export function setPixel(x, y, colour) {
-    setPixelI(x % WIDTH + (y % HEIGHT) * WIDTH, colour);
 }
 
 export function setPixelI(index, colour) {
