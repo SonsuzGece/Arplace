@@ -1,5 +1,5 @@
 "use strict";
-import { DEFAULT_COOLDOWN, DEFAULT_HEIGHT, DEFAULT_PALETTE, DEFAULT_PALETTE_USABLE_REGION, DEFAULT_WIDTH, PLACEMENT_MODE, supabase } from "../../defaults.js";
+import { DEFAULT_HEIGHT, DEFAULT_PALETTE, DEFAULT_PALETTE_USABLE_REGION, DEFAULT_WIDTH, PLACEMENT_MODE, supabase } from "../../defaults.js";
 
 export let BOARD = null;
 export let CHANGES = null;
@@ -28,7 +28,6 @@ export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 export async function makeServerRequest() { return null; }
 
-// Serbest mod değişkenleri
 let isFreeMode = false;
 let selectedColorIndex = 0;
 
@@ -71,93 +70,101 @@ export function connect(device, server = "", vip = undefined) {
 
     // ======================================================
     // SERBEST MOD
-    // Paleti ve renk seçimini hiç bozmuyoruz.
-    // Oyunun palette.js'i rengi seçince "colourselect" custom
-    // event'i fırlatıyor - bunu dinleyip rengi hafızaya alıyoruz.
     // ======================================================
 
-    // Oyunun palette.js'inden renk seçildiğinde indexi sakla
+    // Oyunun renk seçme eventini dinle - hangi rengin seçildiğini takip et
     window.addEventListener("colourselect", (e) => {
         if (e.detail?.colour !== undefined) {
             selectedColorIndex = e.detail.colour;
         }
     });
 
-    // Eğer colourselect event'i yoksa colours div'inden takip et (yedek yöntem)
-    // Her click'te hangi child'ın seçili (selected class) olduğuna bak
-    const coloursObserver = new MutationObserver(() => {
-        const colours = document.getElementById("colours");
-        if (!colours) return;
-        const selected = colours.querySelector(".selected, [selected], .active");
-        if (selected) {
-            const idx = Array.from(colours.children).indexOf(selected);
-            if (idx !== -1) selectedColorIndex = idx;
-        }
-    });
-
-    // Colours div yüklenince observer'ı başlat
-    const waitForColours = setInterval(() => {
+    // Yedek: colours div'indeki selected class'ını takip et
+    setTimeout(() => {
         const colours = document.getElementById("colours");
         if (colours) {
-            clearInterval(waitForColours);
-            coloursObserver.observe(colours, { attributes: true, subtree: true, attributeFilter: ["class", "style"] });
+            colours.addEventListener("click", (e) => {
+                // Tıklamayı engelleme - sadece hangi index'e basıldığını öğren
+                const children = Array.from(colours.children);
+                let t = e.target;
+                while (t && t !== colours) {
+                    const idx = children.indexOf(t);
+                    if (idx !== -1) { selectedColorIndex = idx; break; }
+                    t = t.parentNode;
+                }
+            });
         }
-    }, 200);
+    }, 1000);
 
-    // Serbest Mod Aç/Kapat butonu
+    // Serbest Mod Butonu
     const freeBtn = document.getElementById("freeModeToggle");
     if (freeBtn) {
         freeBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             isFreeMode = !isFreeMode;
             freeBtn.classList.toggle("active", isFreeMode);
+
+            if (isFreeMode) {
+                // Oyunun kendi place butonuna tıkla → palet açılır
+                const placeBtn = document.getElementById("place");
+                if (placeBtn) placeBtn.click();
+            }
         });
     }
 
-    // Viewport'a tıklanınca: serbest moddaysa positionIndicator'dan koordinat al ve direkt boya
+    // pok (✓) butonuna basılınca: serbest moddaysa paleti kapat, boyama yap
+    setTimeout(() => {
+        const pokBtn = document.getElementById("pok");
+        if (pokBtn) {
+            pokBtn.addEventListener("click", (e) => {
+                if (!isFreeMode) return;
+                // Serbest moddayken ✓ butonunu engelle, palet kapansın sadece
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                const paletteDiv = document.getElementById("palette");
+                if (paletteDiv) paletteDiv.style.transform = "translateY(100%)";
+            }, { capture: true });
+        }
+    }, 1000);
+
+    // Viewport - serbest moddayken tıklayınca direkt boya
     const viewport = document.getElementById("viewport");
     if (viewport) {
-        viewport.addEventListener("pointerdown", (e) => {
-            if (!isFreeMode) return;
-
-            // Oyunun tıklama olayını (palet açma vs) tamamen engelle
-            e.stopImmediatePropagation();
-            e.preventDefault();
-
-            // positionIndicator'un güncellenmesi için bekle sonra oku
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const text = document.getElementById("positionIndicator")?.innerText ?? "";
-                    const match = text.match(/\((\d+),\s*(\d+)\)/);
-                    if (!match) return;
-                    const x = parseInt(match[1]);
-                    const y = parseInt(match[2]);
-                    sendServerMessage("putPixel", { position: x + y * WIDTH, colour: selectedColorIndex });
-                });
-            });
-        }, { capture: true });
-
-        // Sürükleyerek boyama
         let isPainting = false;
         let lastPos = -1;
 
-        viewport.addEventListener("pointerdown", () => { if (isFreeMode) { isPainting = true; lastPos = -1; } });
+        function paintAt() {
+            const text = document.getElementById("positionIndicator")?.innerText ?? "";
+            const match = text.match(/\((\d+),\s*(\d+)\)/);
+            if (!match) return;
+            const x = parseInt(match[1]);
+            const y = parseInt(match[2]);
+            const pos = x + y * WIDTH;
+            if (pos === lastPos) return;
+            lastPos = pos;
+            sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
+        }
+
+        viewport.addEventListener("pointerdown", (e) => {
+            if (!isFreeMode) return;
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            isPainting = true;
+            lastPos = -1;
+            requestAnimationFrame(paintAt);
+        }, { capture: true });
+
         viewport.addEventListener("pointermove", (e) => {
             if (!isFreeMode || !isPainting) return;
             e.stopImmediatePropagation();
             e.preventDefault();
+            requestAnimationFrame(paintAt);
+        }, { capture: true });
 
-            requestAnimationFrame(() => {
-                const text = document.getElementById("positionIndicator")?.innerText ?? "";
-                const match = text.match(/\((\d+),\s*(\d+)\)/);
-                if (!match) return;
-                const x = parseInt(match[1]);
-                const y = parseInt(match[2]);
-                const pos = x + y * WIDTH;
-                if (pos === lastPos) return;
-                lastPos = pos;
-                sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
-            });
+        viewport.addEventListener("click", (e) => {
+            if (!isFreeMode) return;
+            e.stopImmediatePropagation();
+            e.preventDefault();
         }, { capture: true });
 
         window.addEventListener("pointerup", () => { isPainting = false; lastPos = -1; });
