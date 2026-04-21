@@ -27,8 +27,9 @@ export let onCooldown = false;
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 
-// --- SERBEST MOD (FREE DRAW) HAFIZASI ---
-let activeColor = 0; // Varsayılan olarak siyah seçili başlar
+// --- SERBEST MOD (FREE DRAW) HAFIZASI VE BUTON KONTROLÜ ---
+let activeColor = 0; // Varsayılan renk (0 = Siyah)
+let isFreeMode = false; // Serbest mod başlangıçta kapalı
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -57,7 +58,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     }).catch(e => console.error(e));
 
-    // Canlı güncellemeleri dinle (Biri piksel koyduğunda anında gör)
+    // Canlı güncellemeleri dinle
     supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
         const p = payload.new;
         if (p) {
@@ -69,10 +70,25 @@ export function connect(device, server = "", vip = undefined) {
     }).subscribe();
 
     // ==========================================
-    // SERBEST MOD (HIZLI ÇİZİM) DİNLEYİCİLERİ
+    // YENİ: SERBEST MOD (HIZLI ÇİZİM) BEYNİ
     // ==========================================
     
-    // 1. Paletteki renklere tıklandığında o rengi hafızaya al
+    // 1. Serbest Mod Butonuna Tıklama Olayı (Aç/Kapat)
+    const freeBtn = document.getElementById("freeModeToggle");
+    if (freeBtn) {
+        // Eğer butona tıklanırsa...
+        freeBtn.addEventListener("click", () => {
+            isFreeMode = !isFreeMode; // Durumu tersine çevir
+            
+            if (isFreeMode) {
+                freeBtn.classList.add("active"); // Butonu turuncu yap
+            } else {
+                freeBtn.classList.remove("active"); // Butonu normal hale getir
+            }
+        });
+    }
+
+    // 2. Paletteki renklere tıklandığında o rengi hafızaya al
     const coloursDiv = document.getElementById("colours");
     if (coloursDiv) {
         coloursDiv.addEventListener("click", (e) => {
@@ -81,7 +97,7 @@ export function connect(device, server = "", vip = undefined) {
             while(target && target.id !== "colours") {
                 const index = children.indexOf(target);
                 if (index !== -1) { 
-                    activeColor = index; 
+                    activeColor = index; // Seçilen rengi hafızaya kaydet
                     break; 
                 }
                 target = target.parentNode;
@@ -89,15 +105,19 @@ export function connect(device, server = "", vip = undefined) {
         });
     }
 
-    // 2. Tuvale tıklandığında serbest mod açıksa anında pikseli koy
+    // 3. Tuvale tıklandığında serbest mod açıksa anında pikseli koy
     const viewportDiv = document.getElementById("viewport");
     if (viewportDiv) {
         viewportDiv.addEventListener("pointerup", (e) => {
-            // index.html'deki session objesinden freeMode durumunu oku
-            const isFreeMode = window.arplaceSession ? window.arplaceSession.freeMode : false;
-            
             if (isFreeMode && !onCooldown) {
-                // Koordinat göstergesinin güncellenmesi için 50ms bekle ve oku
+                
+                // Orijinal menünün (paletin) açılmasını anında iptal et ("Tak tak tak" basabilmek için)
+                setTimeout(() => {
+                    const pcancel = document.getElementById("pcancel");
+                    if (pcancel) pcancel.click(); // Paleti geri kapatır
+                }, 10);
+
+                // Koordinatları okuyup pikseli yerleştir
                 setTimeout(() => {
                     const text = document.getElementById("positionIndicator").innerText;
                     const match = text.match(/\((\d+),\s*(\d+)\)/);
