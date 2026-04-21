@@ -30,6 +30,21 @@ export async function makeServerRequest() { return null; }
 
 let isFreeMode = false;
 let selectedColorIndex = 0;
+let isPaletteOpen = false;
+
+function openPalette() {
+    const paletteDiv = document.getElementById("palette");
+    if (!paletteDiv) return;
+    paletteDiv.style.transform = "translateY(0)";
+    isPaletteOpen = true;
+}
+
+function closePalette() {
+    const paletteDiv = document.getElementById("palette");
+    if (!paletteDiv) return;
+    paletteDiv.style.transform = "translateY(100%)";
+    isPaletteOpen = false;
+}
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -76,53 +91,92 @@ export function connect(device, server = "", vip = undefined) {
     window.addEventListener("colourselect", (e) => {
         if (e.detail?.colour !== undefined) {
             selectedColorIndex = e.detail.colour;
+
+            // Serbest moddaysa renk seçildikten sonra paleti kapat
+            if (isFreeMode) {
+                setTimeout(() => {
+                    closePalette();
+                }, 50);
+            }
         }
     });
 
-    // Yedek: colours div'indeki selected class'ını takip et
+    // Yedek: colours div'indeki selected class/tıklamayı takip et
     setTimeout(() => {
         const colours = document.getElementById("colours");
         if (colours) {
             colours.addEventListener("click", (e) => {
-                // Tıklamayı engelleme - sadece hangi index'e basıldığını öğren
                 const children = Array.from(colours.children);
                 let t = e.target;
+
                 while (t && t !== colours) {
                     const idx = children.indexOf(t);
-                    if (idx !== -1) { selectedColorIndex = idx; break; }
+                    if (idx !== -1) {
+                        selectedColorIndex = idx;
+
+                        if (isFreeMode) {
+                            setTimeout(() => {
+                                closePalette();
+                            }, 50);
+                        }
+                        break;
+                    }
                     t = t.parentNode;
                 }
-            });
+            }, true);
         }
     }, 1000);
 
     // Serbest Mod Butonu
+    // İlk basış: modu aç + palette göster
+    // Tekrar basış: modu kapatma, sadece palette tekrar aç (renk değiştirmek için)
     const freeBtn = document.getElementById("freeModeToggle");
     if (freeBtn) {
         freeBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            isFreeMode = !isFreeMode;
-            freeBtn.classList.toggle("active", isFreeMode);
+            e.preventDefault();
 
-            if (isFreeMode) {
-                // Oyunun kendi place butonuna tıkla → palet açılır
-                const placeBtn = document.getElementById("place");
-                if (placeBtn) placeBtn.click();
+            if (!isFreeMode) {
+                isFreeMode = true;
+                placementMode = PLACEMENT_MODE.freeDraw;
+                freeBtn.classList.add("active");
+                openPalette();
+            } else {
+                openPalette();
             }
         });
     }
 
-    // pok (✓) butonuna basılınca: serbest moddaysa paleti kapat, boyama yap
+    // İptal butonu: serbest modu tamamen kapat
+    setTimeout(() => {
+        const cancelBtn = document.getElementById("pcancel");
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", (e) => {
+                if (!isFreeMode) return;
+
+                e.stopImmediatePropagation();
+                e.preventDefault();
+
+                closePalette();
+                isFreeMode = false;
+                placementMode = PLACEMENT_MODE.selectPixel;
+
+                const freeBtn = document.getElementById("freeModeToggle");
+                if (freeBtn) freeBtn.classList.remove("active");
+            }, { capture: true });
+        }
+    }, 1000);
+
+    // pok (✓) butonuna basılınca: serbest moddaysa onay yapma, sadece palette kapat
     setTimeout(() => {
         const pokBtn = document.getElementById("pok");
         if (pokBtn) {
             pokBtn.addEventListener("click", (e) => {
                 if (!isFreeMode) return;
-                // Serbest moddayken ✓ butonunu engelle, palet kapansın sadece
+
                 e.stopImmediatePropagation();
                 e.preventDefault();
-                const paletteDiv = document.getElementById("palette");
-                if (paletteDiv) paletteDiv.style.transform = "translateY(100%)";
+                closePalette();
             }, { capture: true });
         }
     }, 1000);
@@ -134,40 +188,53 @@ export function connect(device, server = "", vip = undefined) {
         let lastPos = -1;
 
         function paintAt() {
+            if (!isFreeMode || isPaletteOpen) return;
+
             const text = document.getElementById("positionIndicator")?.innerText ?? "";
             const match = text.match(/\((\d+),\s*(\d+)\)/);
             if (!match) return;
-            const x = parseInt(match[1]);
-            const y = parseInt(match[2]);
+
+            const x = parseInt(match[1], 10);
+            const y = parseInt(match[2], 10);
             const pos = x + y * WIDTH;
+
             if (pos === lastPos) return;
             lastPos = pos;
+
             sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
         }
 
         viewport.addEventListener("pointerdown", (e) => {
-            if (!isFreeMode) return;
+            if (!isFreeMode || isPaletteOpen) return;
+
             e.stopImmediatePropagation();
             e.preventDefault();
+
             isPainting = true;
             lastPos = -1;
             requestAnimationFrame(paintAt);
         }, { capture: true });
 
         viewport.addEventListener("pointermove", (e) => {
-            if (!isFreeMode || !isPainting) return;
+            if (!isFreeMode || !isPainting || isPaletteOpen) return;
+
             e.stopImmediatePropagation();
             e.preventDefault();
+
             requestAnimationFrame(paintAt);
         }, { capture: true });
 
         viewport.addEventListener("click", (e) => {
-            if (!isFreeMode) return;
+            if (!isFreeMode || isPaletteOpen) return;
+
             e.stopImmediatePropagation();
             e.preventDefault();
         }, { capture: true });
 
-        window.addEventListener("pointerup", () => { isPainting = false; lastPos = -1; });
+        window.addEventListener("pointerup", () => {
+            isPainting = false;
+            lastPos = -1;
+        });
     }
 }
 
