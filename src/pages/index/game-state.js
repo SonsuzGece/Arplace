@@ -27,6 +27,9 @@ export let onCooldown = false;
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 
+// --- SERBEST MOD (FREE DRAW) HAFIZASI ---
+let activeColor = 0; // Varsayılan olarak siyah seçili başlar
+
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
     connectStatus = "connected";
@@ -42,7 +45,7 @@ export function connect(device, server = "", vip = undefined) {
         window.dispatchEvent(new CustomEvent("cooldown", { detail: { endDate: new Date(), cooldown: 0 }, bubbles: true, composed: true }));
     }, 500);
 
-    // Supabase'den pikselleri çek
+    // Supabase'den eski pikselleri çek
     supabase.from('pixels').select('*').then(({ data }) => {
         if (data) {
             data.forEach(p => {
@@ -54,7 +57,7 @@ export function connect(device, server = "", vip = undefined) {
         }
     }).catch(e => console.error(e));
 
-    // Canlı güncellemeleri dinle
+    // Canlı güncellemeleri dinle (Biri piksel koyduğunda anında gör)
     supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'pixels' }, payload => {
         const p = payload.new;
         if (p) {
@@ -64,6 +67,51 @@ export function connect(device, server = "", vip = undefined) {
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
         }
     }).subscribe();
+
+    // ==========================================
+    // SERBEST MOD (HIZLI ÇİZİM) DİNLEYİCİLERİ
+    // ==========================================
+    
+    // 1. Paletteki renklere tıklandığında o rengi hafızaya al
+    const coloursDiv = document.getElementById("colours");
+    if (coloursDiv) {
+        coloursDiv.addEventListener("click", (e) => {
+            const children = Array.from(coloursDiv.children);
+            let target = e.target;
+            while(target && target.id !== "colours") {
+                const index = children.indexOf(target);
+                if (index !== -1) { 
+                    activeColor = index; 
+                    break; 
+                }
+                target = target.parentNode;
+            }
+        });
+    }
+
+    // 2. Tuvale tıklandığında serbest mod açıksa anında pikseli koy
+    const viewportDiv = document.getElementById("viewport");
+    if (viewportDiv) {
+        viewportDiv.addEventListener("pointerup", (e) => {
+            // index.html'deki session objesinden freeMode durumunu oku
+            const isFreeMode = window.arplaceSession ? window.arplaceSession.freeMode : false;
+            
+            if (isFreeMode && !onCooldown) {
+                // Koordinat göstergesinin güncellenmesi için 50ms bekle ve oku
+                setTimeout(() => {
+                    const text = document.getElementById("positionIndicator").innerText;
+                    const match = text.match(/\((\d+),\s*(\d+)\)/);
+                    if (match) {
+                        const x = parseInt(match[1]);
+                        const y = parseInt(match[2]);
+                        const pos = x + (y * WIDTH);
+                        // Pikseli sunucuya gönder
+                        sendServerMessage("putPixel", { position: pos, colour: activeColor });
+                    }
+                }, 50);
+            }
+        });
+    }
 }
 
 export function sendServerMessage(name, args) {
@@ -75,14 +123,14 @@ export function sendServerMessage(name, args) {
             const x = pos % WIDTH;
             const y = Math.floor(pos / WIDTH);
             
-            // Ekrana çiz
+            // Ekrana anında çiz
             setPixelI(pos, col);
             window.dispatchEvent(new CustomEvent("pixels", { bubbles: true, composed: true }));
 
-            // Veritabanına kaydet
+            // Veritabanına (Supabase) kaydet
             supabase.from('pixels').upsert({ x: x, y: y, color: col.toString() }).then();
             
-            // Bekleme süresi yok
+            // Bekleme süresi (Cooldown) yok - Seri çizime devam
             setCooldown(Date.now());
         }
     }
