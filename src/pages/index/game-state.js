@@ -27,9 +27,8 @@ export let onCooldown = false;
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 
-// --- SERBEST MOD (FREE DRAW) HAFIZASI VE BUTON KONTROLÜ ---
-let activeColor = 0; // Varsayılan renk (0 = Siyah)
-let isFreeMode = false; // Serbest mod başlangıçta kapalı
+// --- SERBEST MOD HAFIZASI ---
+let isFreeMode = false;
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -70,65 +69,51 @@ export function connect(device, server = "", vip = undefined) {
     }).subscribe();
 
     // ==========================================
-    // YENİ: SERBEST MOD (HIZLI ÇİZİM) BEYNİ
+    // YENİ: KUSURSUZ SERBEST MOD BEYNİ
     // ==========================================
-    
-    // 1. Serbest Mod Butonuna Tıklama Olayı (Aç/Kapat)
     const freeBtn = document.getElementById("freeModeToggle");
+    const paletteDiv = document.getElementById("palette");
+    const pokBtn = document.getElementById("pok");
+    const pcancelBtn = document.getElementById("pcancel");
+    const viewportDiv = document.getElementById("viewport");
+
     if (freeBtn) {
-        // Eğer butona tıklanırsa...
         freeBtn.addEventListener("click", () => {
-            isFreeMode = !isFreeMode; // Durumu tersine çevir
+            isFreeMode = !isFreeMode; // Modu aç/kapat
             
             if (isFreeMode) {
-                freeBtn.classList.add("active"); // Butonu turuncu yap
+                // SERBEST MOD AÇIK: Butonu turuncu yap, paleti hep açık tut, onay butonlarını gizle
+                freeBtn.classList.add("active");
+                if (paletteDiv) paletteDiv.style.transform = "translateY(0)";
+                if (pokBtn) pokBtn.style.display = "none";
+                if (pcancelBtn) pcancelBtn.style.display = "none";
             } else {
-                freeBtn.classList.remove("active"); // Butonu normal hale getir
+                // SERBEST MOD KAPALI: Butonu normale çevir, paleti gizle, onay butonlarını geri getir
+                freeBtn.classList.remove("active");
+                if (paletteDiv) paletteDiv.style.transform = "translateY(100%)";
+                if (pokBtn) pokBtn.style.display = "flex";
+                if (pcancelBtn) pcancelBtn.style.display = "flex";
             }
         });
     }
 
-    // 2. Paletteki renklere tıklandığında o rengi hafızaya al
-    const coloursDiv = document.getElementById("colours");
-    if (coloursDiv) {
-        coloursDiv.addEventListener("click", (e) => {
-            const children = Array.from(coloursDiv.children);
-            let target = e.target;
-            while(target && target.id !== "colours") {
-                const index = children.indexOf(target);
-                if (index !== -1) { 
-                    activeColor = index; // Seçilen rengi hafızaya kaydet
-                    break; 
-                }
-                target = target.parentNode;
-            }
-        });
-    }
-
-    // 3. Tuvale tıklandığında serbest mod açıksa anında pikseli koy
-    const viewportDiv = document.getElementById("viewport");
+    // Ekrana tıklandığında Otomatik Onaylama (Tak Tak Tak)
     if (viewportDiv) {
         viewportDiv.addEventListener("pointerup", (e) => {
             if (isFreeMode && !onCooldown) {
-                
-                // Orijinal menünün (paletin) açılmasını anında iptal et ("Tak tak tak" basabilmek için)
+                // Oyun motorunun (index.js) koordinatı ve rengi algılaması için 20ms bekle
                 setTimeout(() => {
-                    const pcancel = document.getElementById("pcancel");
-                    if (pcancel) pcancel.click(); // Paleti geri kapatır
-                }, 10);
-
-                // Koordinatları okuyup pikseli yerleştir
-                setTimeout(() => {
-                    const text = document.getElementById("positionIndicator").innerText;
-                    const match = text.match(/\((\d+),\s*(\d+)\)/);
-                    if (match) {
-                        const x = parseInt(match[1]);
-                        const y = parseInt(match[2]);
-                        const pos = x + (y * WIDTH);
-                        // Pikseli sunucuya gönder
-                        sendServerMessage("putPixel", { position: pos, colour: activeColor });
+                    if (pokBtn) {
+                        pokBtn.click(); // Oyunun kendi Onay butonuna gizlice tıkla
+                        
+                        // Oyun, pikseli koyunca paleti kapatmaya çalışacaktır. Onu hemen geri aç!
+                        setTimeout(() => {
+                            if (isFreeMode && paletteDiv) {
+                                paletteDiv.style.transform = "translateY(0)";
+                            }
+                        }, 5);
                     }
-                }, 50);
+                }, 20);
             }
         });
     }
@@ -150,7 +135,7 @@ export function sendServerMessage(name, args) {
             // Veritabanına (Supabase) kaydet
             supabase.from('pixels').upsert({ x: x, y: y, color: col.toString() }).then();
             
-            // Bekleme süresi (Cooldown) yok - Seri çizime devam
+            // BEKLEME SÜRESİ (COOLDOWN) YOK - Seri çizime devam
             setCooldown(Date.now());
         }
     }
