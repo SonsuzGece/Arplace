@@ -287,19 +287,19 @@ export const MAX_CHANNEL_MESSAGES = 100
 // Canvas defaults
 export const DEFAULT_PALETTE_USABLE_REGION = { start: 0, end: 32 };
 
-// --- 4x8 IZGARAYA GÖRE HESAPLANMIŞ VE İSTENEN YENİ RENK PALETİ ---
+// --- GÖRSELE GÖRE BİREBİR HESAPLANMIŞ 32'LİK RENK PALETİ ---
 export const DEFAULT_PALETTE = [
-	// 1. Satır: Siyah, Koyu Gri 1, Koyu Gri 2, Orta Gri, Açık Gri, Beyaz, Açık Pembe, Mat Kırmızı
-	0xff000000, 0xff666666, 0xff555555, 0xff888888, 0xffCCCCCC, 0xffFFFFFF, 0xffFFA0A0, 0xffD03030,
+	// 1. Satır: Siyah, Koyu Gri, Gri, Açık Gri, Daha Açık Gri, Beyaz, Açık Pembe, Kırmızı
+	0xff000000, 0xff747474, 0xff5c5c5c, 0xff8c8c8c, 0xffdcdcdc, 0xffffffff, 0xff8ca0ff, 0xff3738cf,
 	
-	// 2. Satır: Canlı Kırmızı, Koyu Kırmızı, Bordo, Turuncu, Açık Yeşil (Lime), Fıstık Yeşili, Koyu Yeşil, Çivit Mavisi
-	0xffE01040, 0xffA00000, 0xff700000, 0xffFF6000, 0xffCCFF66, 0xff88E077, 0xff007733, 0xff4050C0,
+	// 2. Satır: Pembe/Kırmızı, Bordo, Koyu Bordo, Turuncu, Açık Yeşil (Lime), Çimen Yeşili, Koyu Yeşil, Mavi/Lacivert
+	0xff4318e4, 0xff00009c, 0xff000078, 0xff0062ff, 0xff8affc2, 0xff70d481, 0xff326f00, 0xffa4563a,
 	
-	// 3. Satır: Gök Mavisi, Buz Mavisi, Camgöbeği (Cyan), Lila, Mor, Pembe (Macenta), Hardal / Koyu Turuncu, Sarı
-	0xff70B0E0, 0xff88DDFF, 0xff00FFFF, 0xffB080FF, 0xffB030FF, 0xffF03080, 0xffFF9900, 0xffFFFF00,
+	// 3. Satır: Mavi, Açık Mavi, Turkuaz, Eflatun/Lila, Mor, Fuşya/Pembe, Turuncu/Sarımsı, Sarı
+	0xffcf9b6b, 0xffebd382, 0xffffff00, 0xffff9df3, 0xffff4bf0, 0xff8931eb, 0xff0096ff, 0xff00d1ff,
 	
-	// 4. Satır: Kahverengi, Ten Rengi / Şeftali, Lacivert, Açık Kahverengi / Kum Rengi, Neon Parlak Yeşil, Teal / Deniz Mavisi, Koyu Mor / İndigo, Altın Sarısı / Gold
-	0xff603010, 0xffFFCCAA, 0xff000080, 0xffD2B48C, 0xff00FF00, 0xff008080, 0xff4B0082, 0xffFFD700
+	// 4. Satır: Kahverengi, Siyah, Siyah, Siyah, Siyah, Siyah, Siyah, Siyah
+	0xff00395c, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000
 ];
 
 export const DEFAULT_WIDTH = 2000;
