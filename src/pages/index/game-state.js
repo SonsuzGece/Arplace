@@ -27,10 +27,14 @@ export let onCooldown = false;
 export let preloadedBoard = Promise.resolve(new ArrayBuffer(WIDTH * HEIGHT));
 export async function fetchBoard() { return null; }
 
-// --- SERBEST MOD AYARLARI ---
+// --- EKSİK OLAN ZORUNLU FONKSİYON ---
+export async function makeServerRequest() { return null; }
+
+// --- SERBEST MOD (FIRÇA) AYARLARI ---
 let isFreeMode = false;
 let selectedColorIndex = 0;
 let isPainting = false;
+let lastPaintedPos = -1; // Aynı piksele 100 kere istek atmayı önler
 
 export function connect(device, server = "", vip = undefined) {
     if (connectStatus === "connected") return;
@@ -70,11 +74,14 @@ export function connect(device, server = "", vip = undefined) {
     }).subscribe();
 
     // ==========================================
-    // SERBEST MOD
+    // KUSURSUZ SERBEST MOD (FIRÇA MANTIĞI)
     // ==========================================
     const freeBtn = document.getElementById("freeModeToggle");
     const viewport = document.getElementById("viewport");
     const coloursContainer = document.getElementById("colours");
+    const paletteDiv = document.getElementById("palette");
+    const pokBtn = document.getElementById("pok");
+    const pcancelBtn = document.getElementById("pcancel");
 
     // 1. Serbest Modu Aç/Kapat
     if (freeBtn) {
@@ -82,11 +89,29 @@ export function connect(device, server = "", vip = undefined) {
             e.stopPropagation();
             isFreeMode = !isFreeMode;
             freeBtn.classList.toggle("active", isFreeMode);
-            freeBtn.style.background = isFreeMode ? "#4CAF50" : "";
+
+            if (isFreeMode) {
+                // Fırça açık: Paleti göster, Onay/İptal butonlarını gizle
+                if (paletteDiv) paletteDiv.style.transform = "translateY(0)";
+                if (pokBtn) pokBtn.style.display = "none";
+                if (pcancelBtn) pcancelBtn.style.display = "none";
+                
+                // Varsayılan rengi seçili göster (Siyah)
+                if (coloursContainer && coloursContainer.children.length > 0) {
+                    Array.from(coloursContainer.children).forEach(c => c.style.outline = "");
+                    coloursContainer.children[selectedColorIndex].style.outline = "3px solid white";
+                }
+            } else {
+                // Fırça kapalı: Paleti gizle, butonları geri getir
+                if (paletteDiv) paletteDiv.style.transform = "translateY(100%)";
+                if (pokBtn) pokBtn.style.display = "flex";
+                if (pcancelBtn) pcancelBtn.style.display = "flex";
+                isPainting = false;
+            }
         });
     }
 
-    // 2. Renk Seçimi - sadece renk indexini güncelle, başka hiçbir şey yapma
+    // 2. Renk Seçimi (Sadece hafızaya alır, ekranda işaretler)
     if (coloursContainer) {
         coloursContainer.addEventListener("click", (e) => {
             if (!isFreeMode) return;
@@ -96,7 +121,7 @@ export function connect(device, server = "", vip = undefined) {
                 const index = children.indexOf(target);
                 if (index !== -1) {
                     selectedColorIndex = index;
-                    // Seçili rengi görsel olarak işaretle
+                    // Seçili rengi görsel olarak beyaz bir çerçeve ile işaretle
                     children.forEach(c => c.style.outline = "");
                     children[index].style.outline = "3px solid white";
                     e.stopImmediatePropagation();
@@ -108,63 +133,52 @@ export function connect(device, server = "", vip = undefined) {
         }, { capture: true });
     }
 
-    // 3. Canvas piksel koordinatını hesaplayan yardımcı fonksiyon
-    function getPixelCoord(e) {
-        const canvas = document.querySelector("canvas");
-        if (!canvas) {
-            // Fallback: positionIndicator'dan oku
-            const text = document.getElementById("positionIndicator")?.innerText ?? "";
-            const match = text.match(/\((\d+),\s*(\d+)\)/);
-            if (!match) return null;
-            return { x: parseInt(match[1]), y: parseInt(match[2]) };
-        }
+    // 3. Piksel Koyma (Fırça) Fonksiyonu
+    function paintPixel() {
+        const text = document.getElementById("positionIndicator")?.innerText ?? "";
+        const match = text.match(/\((\d+),\s*(\d+)\)/);
+        if (!match) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const clientX = e.clientX ?? e.touches?.[0]?.clientX;
-        const clientY = e.clientY ?? e.touches?.[0]?.clientY;
-        if (clientX == null) return null;
+        const x = parseInt(match[1]);
+        const y = parseInt(match[2]);
+        const pos = x + y * WIDTH;
 
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+        // Aynı piksele saniyede 100 kere istek atmamak için koruma
+        if (lastPaintedPos === pos) return;
+        lastPaintedPos = pos;
 
-        const px = Math.floor((clientX - rect.left) * scaleX);
-        const py = Math.floor((clientY - rect.top) * scaleY);
-
-        if (px < 0 || py < 0 || px >= WIDTH || py >= HEIGHT) return null;
-        return { x: px, y: py };
+        sendServerMessage("putPixel", { position: pos, colour: selectedColorIndex });
     }
 
-    // 4. Boyama fonksiyonu
-    function paintPixel(e) {
-        const coord = getPixelCoord(e);
-        if (!coord) return;
-        sendServerMessage("putPixel", { position: coord.x + coord.y * WIDTH, colour: selectedColorIndex });
-    }
-
-    // 5. Pointer olayları - capture:true ile oyunun kendi olaylarını engelle
+    // 4. Tuvale Dokunma/Kaydırma İşlemleri
     if (viewport) {
+        // Oyunun orijinal "tıklayınca palet açma" huyunu engelliyoruz
+        viewport.addEventListener("click", (e) => {
+            if (isFreeMode) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+            }
+        }, { capture: true });
+
+        // Ekrana dokunulduğunda
         viewport.addEventListener("pointerdown", (e) => {
             if (!isFreeMode) return;
-            e.stopImmediatePropagation();
-            e.preventDefault();
             isPainting = true;
-            paintPixel(e);
-        }, { capture: true });
+            // Koordinatın güncellenmesi için 15ms bekleyip boya
+            setTimeout(paintPixel, 15); 
+        });
 
+        // Ekranda parmak/fare kaydırıldığında (Sürükleyerek boyama)
         viewport.addEventListener("pointermove", (e) => {
             if (!isFreeMode || !isPainting) return;
-            e.stopImmediatePropagation();
-            e.preventDefault();
-            paintPixel(e);
-        }, { capture: true });
+            setTimeout(paintPixel, 15);
+        });
 
-        viewport.addEventListener("pointerup", () => {
+        // Ekrana dokunma bırakıldığında
+        window.addEventListener("pointerup", () => {
             isPainting = false;
-        }, { capture: true });
-
-        viewport.addEventListener("pointercancel", () => {
-            isPainting = false;
-        }, { capture: true });
+            lastPaintedPos = -1; // Hafızayı sıfırla ki tekrar aynı yere tıklanabilsin
+        });
     }
 }
 
@@ -199,6 +213,11 @@ export function setCooldown(endDate) {
     cooldownEndDate = endDate;
     onCooldown = false;
     window.dispatchEvent(new CustomEvent("cooldownstart", { detail: { endDate, onCooldown: false }, bubbles: true, composed: true }));
+}
+
+// --- EKSİK OLAN ZORUNLU FONKSİYON (index.js bunu arar) ---
+export function setPixel(x, y, colour) {
+    setPixelI(x % WIDTH + (y % HEIGHT) * WIDTH, colour);
 }
 
 export function setPixelI(index, colour) {
